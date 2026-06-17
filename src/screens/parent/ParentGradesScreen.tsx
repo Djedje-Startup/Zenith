@@ -1,5 +1,5 @@
 // screens/parent/ParentGradesScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,17 @@ import {
   TouchableOpacity,
   RefreshControl,
   StatusBar,
+  Animated,
 } from 'react-native';
-import { MotiView } from 'moti';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/animations/EmptyState';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { StudentClubDetailScreen } from '../eleve/StudentClubDetailScreen';
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
@@ -73,8 +75,6 @@ const MOCK_REPORT_CARDS: ReportCard[] = [
       { id: '1', matiere: 'Mathématiques', moyenne: 14.5, coefficient: 4, appreciation: 'Bon travail', rang: 4, effectif: 32 },
       { id: '2', matiere: 'Français', moyenne: 16.2, coefficient: 4, appreciation: 'Excellent', rang: 2, effectif: 32 },
       { id: '3', matiere: 'Anglais', moyenne: 14.8, coefficient: 3, appreciation: 'Bonne progression', rang: 5, effectif: 32 },
-      { id: '4', matiere: 'Physique-Chimie', moyenne: 13.5, coefficient: 3, appreciation: 'Peut mieux faire', rang: 8, effectif: 32 },
-      { id: '5', matiere: 'SVT', moyenne: 17.0, coefficient: 2, appreciation: 'Très bon travail', rang: 1, effectif: 32 },
     ],
   },
   {
@@ -85,7 +85,6 @@ const MOCK_REPORT_CARDS: ReportCard[] = [
     matieres: [
       { id: '6', matiere: 'Mathématiques', moyenne: 15.5, coefficient: 4, appreciation: 'Progression', rang: 3, effectif: 32 },
       { id: '7', matiere: 'Français', moyenne: 17.0, coefficient: 4, appreciation: 'Excellent', rang: 1, effectif: 32 },
-      { id: '8', matiere: 'Anglais', moyenne: 15.2, coefficient: 3, appreciation: 'Très bien', rang: 4, effectif: 32 },
     ],
   },
   {
@@ -104,15 +103,15 @@ const MOCK_REPORT_CARDS: ReportCard[] = [
 const getMentionConfig = (mention: string) => {
   switch (mention) {
     case 'EXCELLENT':
-      return { label: 'Excellent', color: C.green, bg: C.greenBg, icon: '🌟' };
+      return { label: 'Excellent', color: C.green, bg: C.greenBg, icon: 'award' as const };
     case 'TRES_BIEN':
-      return { label: 'Très bien', color: C.blue, bg: C.blueBg, icon: '⭐' };
+      return { label: 'Très bien', color: C.blue, bg: C.blueBg, icon: 'award' as const };
     case 'BIEN':
-      return { label: 'Bien', color: C.accent, bg: C.accentBg, icon: '✨' };
+      return { label: 'Bien', color: C.accent, bg: C.accentBg, icon: 'star' as const };
     case 'ASSEZ_BIEN':
-      return { label: 'Assez bien', color: C.amber, bg: C.amberBg, icon: '📈' };
+      return { label: 'Assez bien', color: C.amber, bg: C.amberBg, icon: 'trending-up' as const };
     default:
-      return { label: 'Insuffisant', color: C.red, bg: C.redBg, icon: '⚠️' };
+      return { label: 'Insuffisant', color: C.red, bg: C.redBg, icon: 'alert-circle' as const };
   }
 };
 
@@ -143,11 +142,26 @@ const GradeCircle = ({ note, size = 'md' }: { note: number; size?: 'sm' | 'md' |
   const color = getGradeColor(note);
   const sizeConfig = sizes[size];
 
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        damping: 20,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
-    <MotiView
-      from={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: 'spring', damping: 20 }}
+    <Animated.View
       style={{
         width: sizeConfig.container,
         height: sizeConfig.container,
@@ -157,6 +171,8 @@ const GradeCircle = ({ note, size = 'md' }: { note: number; size?: 'sm' | 'md' |
         borderColor: color + '30',
         alignItems: 'center',
         justifyContent: 'center',
+        transform: [{ scale }],
+        opacity: opacity,
       }}
     >
       <Text
@@ -168,82 +184,7 @@ const GradeCircle = ({ note, size = 'md' }: { note: number; size?: 'sm' | 'md' |
       >
         {note.toFixed(1)}
       </Text>
-    </MotiView>
-  );
-};
-
-// ─── Period Selector ──────────────────────────────────────────────────────
-const PeriodSelector = ({
-  reports,
-  selectedId,
-  onSelect,
-}: {
-  reports: ReportCard[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-}) => {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={{ paddingHorizontal: 16, paddingBottom: 16 }}
-      contentContainerStyle={{ marginHorizontal: 4 }}
-    >
-      {reports.map((report) => {
-        const isActive = selectedId === report.id;
-        const mentionConfig = getMentionConfig(report.mention);
-
-        return (
-          <TouchableOpacity
-            key={report.id}
-            activeOpacity={0.7}
-            onPress={() => onSelect(report.id)}
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 14,
-              backgroundColor: isActive ? C.accent : C.surface,
-              borderWidth: 1,
-              borderColor: isActive ? C.accent : C.border,
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginHorizontal: 4,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: isActive ? '700' : '600',
-                color: isActive ? '#FFFFFF' : C.textSecondary,
-                letterSpacing: 0.2,
-              }}
-            >
-              {report.periode}
-            </Text>
-            {isActive && (
-              <View
-                style={{
-                  width: 4,
-                  height: 4,
-                  borderRadius: 2,
-                  backgroundColor: '#FFFFFF',
-                  marginLeft: 6,
-                }}
-              />
-            )}
-            <Text
-              style={{
-                fontSize: 10,
-                color: isActive ? 'rgba(255,255,255,0.6)' : C.textMuted,
-                marginLeft: 6,
-              }}
-            >
-              {mentionConfig.icon}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+    </Animated.View>
   );
 };
 
@@ -252,11 +193,32 @@ const GradeItem = ({ grade, index }: { grade: Grade; index: number }) => {
   const color = getGradeColor(grade.moyenne);
   const level = getGradeLevel(grade.moyenne);
 
+  const translateX = useRef(new Animated.Value(-10)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(translateX, {
+        toValue: 0,
+        damping: 25,
+        delay: 150 + index * 40,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 300,
+        delay: 150 + index * 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
-    <MotiView
-      from={{ opacity: 0, translateX: -10 }}
-      animate={{ opacity: 1, translateX: 0 }}
-      transition={{ type: 'timing', duration: 300, delay: 150 + index * 40 }}
+    <Animated.View
+      style={{
+        transform: [{ translateX }],
+        opacity: opacity,
+      }}
     >
       <View
         style={{
@@ -270,7 +232,6 @@ const GradeItem = ({ grade, index }: { grade: Grade; index: number }) => {
           alignItems: 'center',
         }}
       >
-        {/* Indicateur latéral */}
         <View
           style={{
             width: 3,
@@ -281,7 +242,6 @@ const GradeItem = ({ grade, index }: { grade: Grade; index: number }) => {
           }}
         />
 
-        {/* Infos matière */}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text
@@ -352,18 +312,57 @@ const GradeItem = ({ grade, index }: { grade: Grade; index: number }) => {
           )}
         </View>
 
-        {/* Note */}
         <GradeCircle note={grade.moyenne} size="md" />
       </View>
-    </MotiView>
+    </Animated.View>
   );
 };
+
+// ─── Tab Button ────────────────────────────────────────────────────────────
+interface TabButtonProps {
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+  isActive: boolean;
+  onPress: () => void;
+}
+
+const TabButton: React.FC<TabButtonProps> = ({ label, icon, isActive, onPress }) => (
+  <TouchableOpacity
+    activeOpacity={0.7}
+    onPress={onPress}
+    style={{
+      flex: 1,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      borderRadius: 10,
+      backgroundColor: isActive ? C.accent : 'transparent',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 6,
+    }}
+  >
+    <Feather name={icon} size={16} color={isActive ? '#FFFFFF' : C.textMuted} />
+    <Text
+      style={{
+        fontSize: 11,
+        fontWeight: isActive ? '700' : '500',
+        color: isActive ? '#FFFFFF' : C.textMuted,
+        letterSpacing: 0.3,
+      }}
+    >
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 export const ParentGradesScreen: React.FC = () => {
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(MOCK_REPORT_CARDS[0]?.id || '');
+  const [activeTab, setActiveTab] = useState<'notes' | 'timetable' | 'attendance' | 'courses' | 'clubs' | 'teachers'>('notes');
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -377,6 +376,272 @@ export const ParentGradesScreen: React.FC = () => {
   const totalCoef = currentReport?.matieres.reduce((acc, m) => acc + m.coefficient, 0) || 0;
 
   const initials = `${user.prenoms?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase();
+
+  // Animation pour le contenu
+  const contentScale = useRef(new Animated.Value(0.95)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(contentScale, {
+        toValue: 1,
+        damping: 25,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [selectedPeriod]);
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'notes':
+        return renderNotesContent();
+      case 'timetable':
+        return renderTimetableContent();
+      case 'attendance':
+        return renderAttendanceContent();
+      case 'courses':
+        return renderCoursesContent();
+      case 'clubs':
+        return renderClubsContent();
+      case 'teachers':
+        return renderTeachersContent();
+      default:
+        return renderNotesContent();
+    }
+  };
+
+  const renderNotesContent = () => {
+    if (!currentReport || !mentionConfig) {
+      return (
+        <EmptyState
+          title="Aucun bulletin"
+          description="Aucun bulletin n'est disponible pour le moment"
+          icon="book-open"
+          variant="default"
+        />
+      );
+    }
+
+    return (
+      <Animated.View
+        style={{
+          transform: [{ scale: contentScale }],
+          opacity: contentOpacity,
+        }}
+      >
+        {/* Carte résumé */}
+        <View style={{ marginBottom: 20 }}>
+          <Card variant="elevated" padding="lg" glow>
+            <LinearGradient
+              colors={[mentionConfig.color + '20', 'transparent']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 3,
+              }}
+            />
+
+            <View style={{ alignItems: 'center' }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: C.textSecondary,
+                  letterSpacing: 0.3,
+                }}
+              >
+                {currentReport.periode}
+              </Text>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16 }}>
+                <View style={{ alignItems: 'center', marginRight: 24 }}>
+                  <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600' }}>
+                    Moyenne
+                  </Text>
+                  <View
+                    style={{
+                      marginTop: 4,
+                      width: 64,
+                      height: 64,
+                      borderRadius: 32,
+                      backgroundColor: mentionConfig.bg,
+                      borderWidth: 2,
+                      borderColor: mentionConfig.color + '40',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 20,
+                        fontWeight: '800',
+                        color: mentionConfig.color,
+                        letterSpacing: -0.5,
+                      }}
+                    >
+                      {currentReport.moyenneGenerale.toFixed(1)}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 8,
+                        color: mentionConfig.color + '80',
+                        fontWeight: '600',
+                      }}
+                    >
+                      /20
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={{
+                    width: 1,
+                    height: 50,
+                    backgroundColor: C.border,
+                    marginRight: 24,
+                  }}
+                />
+
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600' }}>
+                    Mention
+                  </Text>
+                  <View style={{ marginTop: 4 }}>
+                    <Badge
+                      text={mentionConfig.label}
+                      variant={
+                        currentReport.mention === 'EXCELLENT' ? 'success' :
+                        currentReport.mention === 'TRES_BIEN' ? 'info' :
+                        currentReport.mention === 'BIEN' ? 'primary' :
+                        currentReport.mention === 'ASSEZ_BIEN' ? 'warning' : 'error'
+                      }
+                      size="md"
+                      glow
+                    />
+                  </View>
+                  <Text style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
+                    {totalCoef} coefficients
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Card>
+        </View>
+
+        {/* Détail des matières */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '700',
+              color: C.textSecondary,
+              letterSpacing: 0.5,
+              textTransform: 'uppercase',
+            }}
+          >
+            Détail des matières
+          </Text>
+          <Text style={{ fontSize: 11, color: C.textMuted }}>
+            {currentReport.matieres.length} matières
+          </Text>
+        </View>
+
+        {currentReport.matieres.map((matiere, index) => (
+          <GradeItem key={matiere.id} grade={matiere} index={index} />
+        ))}
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={{
+            backgroundColor: C.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: C.border,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 16,
+          }}
+        >
+          <Feather name="download" size={18} color={C.accentDim} style={{ marginRight: 10 }} />
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: C.accentDim,
+              letterSpacing: 0.2,
+            }}
+          >
+            Télécharger le bulletin
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  const renderTimetableContent = () => (
+    <View style={{ flex: 1 }}>
+      <EmptyState
+        title="Emploi du temps"
+        description="L'emploi du temps de votre enfant sera disponible ici"
+        icon="calendar"
+        variant="default"
+      />
+    </View>
+  );
+
+  const renderAttendanceContent = () => (
+    <View style={{ flex: 1 }}>
+      <EmptyState
+        title="Présences"
+        description="Le suivi des présences de votre enfant sera disponible ici"
+        icon="check-square"
+        variant="default"
+      />
+    </View>
+  );
+
+  const renderCoursesContent = () => (
+    <View style={{ flex: 1 }}>
+      <EmptyState
+        title="Cours"
+        description="La liste des cours de votre enfant sera disponible ici"
+        icon="book"
+        variant="default"
+      />
+    </View>
+  );
+
+  const renderClubsContent = () => {
+    // Ici on pourrait passer l'ID du club ou une liste de clubs
+    // Pour l'exemple, on affiche un placeholder
+    return (
+      <View style={{ flex: 1 }}>
+        <StudentClubDetailScreen />
+      </View>
+    );
+  };
+
+  const renderTeachersContent = () => (
+    <View style={{ flex: 1 }}>
+      <EmptyState
+        title="Professeurs"
+        description="La liste des professeurs de votre enfant sera disponible ici"
+        icon="users"
+        variant="default"
+      />
+    </View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -393,13 +658,12 @@ export const ParentGradesScreen: React.FC = () => {
           style={{
             backgroundColor: C.surface,
             paddingTop: 56,
-            paddingBottom: 28,
+            paddingBottom: 20,
             paddingHorizontal: 22,
             overflow: 'hidden',
             position: 'relative',
           }}
         >
-          {/* Halos décoratifs */}
           <View
             style={{
               position: 'absolute',
@@ -423,17 +687,17 @@ export const ParentGradesScreen: React.FC = () => {
             }}
           />
 
-          {/* Top bar */}
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: 20,
+              marginBottom: 16,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
+                onPress={() => navigation.goBack()}
                 style={{
                   width: 40,
                   height: 40,
@@ -457,7 +721,7 @@ export const ParentGradesScreen: React.FC = () => {
                   textTransform: 'uppercase',
                 }}
               >
-                ✦ SURYA
+                SURYA
               </Text>
             </View>
 
@@ -477,7 +741,6 @@ export const ParentGradesScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
-          {/* Titre */}
           <Text
             style={{
               fontSize: 22,
@@ -486,201 +749,73 @@ export const ParentGradesScreen: React.FC = () => {
               letterSpacing: -0.3,
             }}
           >
-            Notes & bulletins
+            Suivi de l'élève
           </Text>
           <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 4, letterSpacing: 0.2 }}>
-            Suivez les performances de vos enfants
+            {currentReport?.periode || 'Toutes les informations'}
           </Text>
         </View>
 
-        {/* ───── Sélecteur de période ───── */}
-        {MOCK_REPORT_CARDS.length > 0 && (
-          <PeriodSelector
-            reports={MOCK_REPORT_CARDS}
-            selectedId={selectedPeriod}
-            onSelect={setSelectedPeriod}
-          />
-        )}
+        {/* ───── Tabs ───── */}
+        <View
+          style={{
+            backgroundColor: C.surface,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderBottomWidth: 1,
+            borderBottomColor: C.border,
+          }}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 4 }}
+          >
+            <TabButton
+              label="Notes"
+              icon="book-open"
+              isActive={activeTab === 'notes'}
+              onPress={() => setActiveTab('notes')}
+            />
+            <TabButton
+              label="Emploi"
+              icon="calendar"
+              isActive={activeTab === 'timetable'}
+              onPress={() => setActiveTab('timetable')}
+            />
+            <TabButton
+              label="Présences"
+              icon="check-square"
+              isActive={activeTab === 'attendance'}
+              onPress={() => setActiveTab('attendance')}
+            />
+            <TabButton
+              label="Cours"
+              icon="book"
+              isActive={activeTab === 'courses'}
+              onPress={() => setActiveTab('courses')}
+            />
+            <TabButton
+              label="Clubs"
+              icon="users"
+              isActive={activeTab === 'clubs'}
+              onPress={() => setActiveTab('clubs')}
+            />
+            <TabButton
+              label="Professeurs"
+              icon="user"
+              isActive={activeTab === 'teachers'}
+              onPress={() => setActiveTab('teachers')}
+            />
+          </ScrollView>
+        </View>
 
         {/* ───── Contenu ───── */}
-        <View style={{ paddingHorizontal: 16, paddingBottom: 100 }}>
-          {currentReport && mentionConfig ? (
-            <MotiView
-              from={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'spring', damping: 25 }}
-            >
-              {/* ───── Carte résumé ───── */}
-              <View style={{ marginBottom: 20 }}>
-                <Card
-                  variant="elevated"
-                  padding="lg"
-                  glow
-                >
-                  {/* Bandeau supérieur */}
-                  <LinearGradient
-                    colors={[mentionConfig.color + '20', 'transparent']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 3,
-                    }}
-                  />
-
-                  <View style={{ alignItems: 'center' }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: '600',
-                        color: C.textSecondary,
-                        letterSpacing: 0.3,
-                      }}
-                    >
-                      {currentReport.periode}
-                    </Text>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16 }}>
-                      {/* Moyenne */}
-                      <View style={{ alignItems: 'center', marginRight: 24 }}>
-                        <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600' }}>
-                          Moyenne
-                        </Text>
-                        <View
-                          style={{
-                            marginTop: 4,
-                            width: 64,
-                            height: 64,
-                            borderRadius: 32,
-                            backgroundColor: mentionConfig.bg,
-                            borderWidth: 2,
-                            borderColor: mentionConfig.color + '40',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 20,
-                              fontWeight: '800',
-                              color: mentionConfig.color,
-                              letterSpacing: -0.5,
-                            }}
-                          >
-                            {currentReport.moyenneGenerale.toFixed(1)}
-                          </Text>
-                          <Text
-                            style={{
-                              fontSize: 8,
-                              color: mentionConfig.color + '80',
-                              fontWeight: '600',
-                            }}
-                          >
-                            /20
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Séparateur */}
-                      <View
-                        style={{
-                          width: 1,
-                          height: 50,
-                          backgroundColor: C.border,
-                          marginRight: 24,
-                        }}
-                      />
-
-                      {/* Mention */}
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600' }}>
-                          Mention
-                        </Text>
-                        <View style={{ marginTop: 4 }}>
-                          <Badge
-                            text={`${mentionConfig.icon} ${mentionConfig.label}`}
-                            variant={
-                              currentReport.mention === 'EXCELLENT' ? 'success' :
-                              currentReport.mention === 'TRES_BIEN' ? 'info' :
-                              currentReport.mention === 'BIEN' ? 'primary' :
-                              currentReport.mention === 'ASSEZ_BIEN' ? 'warning' : 'error'
-                            }
-                            size="md"
-                            glow
-                          />
-                        </View>
-                        <Text style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
-                          {totalCoef} coefficients
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </Card>
-              </View>
-
-              {/* ───── Détail des matières ───── */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: '700',
-                    color: C.textSecondary,
-                    letterSpacing: 0.5,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Détail des matières
-                </Text>
-                <Text style={{ fontSize: 11, color: C.textMuted }}>
-                  {currentReport.matieres.length} matières
-                </Text>
-              </View>
-
-              {currentReport.matieres.map((matiere, index) => (
-                <GradeItem key={matiere.id} grade={matiere} index={index} />
-              ))}
-
-              {/* ───── Bouton téléchargement ───── */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={{
-                  backgroundColor: C.surface,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: C.border,
-                  padding: 16,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginTop: 16,
-                }}
-              >
-                <Feather name="download" size={18} color={C.accentDim} style={{ marginRight: 10 }} />
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: '600',
-                    color: C.accentDim,
-                    letterSpacing: 0.2,
-                  }}
-                >
-                  Télécharger le bulletin
-                </Text>
-              </TouchableOpacity>
-            </MotiView>
-          ) : (
-            <EmptyState
-              title="Aucun bulletin"
-              description="Aucun bulletin n'est disponible pour le moment"
-              icon="book-open"
-              variant="default"
-            />
-          )}
+        <View style={{ paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 100 }}>
+          {renderContent()}
         </View>
       </ScrollView>
     </View>
+    
   );
 };

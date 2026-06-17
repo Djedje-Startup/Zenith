@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
@@ -33,6 +34,8 @@ const C = {
   amberBg: 'rgba(251,191,36,0.09)',
   red: '#EF4444',
   redBg: 'rgba(239,68,68,0.09)',
+  teal: '#2DD4BF',
+  tealBg: 'rgba(45,212,191,0.09)',
   textPrimary: '#E8EAF0',
   textSecondary: '#CDD0E0',
   textMuted: '#4A5060',
@@ -62,11 +65,47 @@ const MOCK_STUDENT = {
   ],
 };
 
+// ✅ Accès rapide avec navigation
 const QUICK_ACCESS = [
-  { label: 'Emploi du temps', icon: 'calendar' as const, color: C.blue,   bg: C.blueBg   },
-  { label: 'Mes notes',       icon: 'book-open' as const, color: C.green,  bg: C.greenBg  },
-  { label: 'Présences',       icon: 'check-square' as const, color: C.purple, bg: C.purpleBg },
-  { label: 'Clubs',           icon: 'users' as const, color: C.pink,   bg: C.pinkBg   },
+  { 
+    label: 'Emploi du temps', 
+    icon: 'calendar' as const, 
+    color: C.blue,   
+    bg: C.blueBg,
+    screen: 'StudentTimetable' 
+  },
+  { 
+    label: 'Mes notes',       
+    icon: 'book-open' as const, 
+    color: C.green,  
+    bg: C.greenBg,
+    screen: 'StudentGrades' 
+  },
+  { 
+    label: 'Présences',       
+    icon: 'check-square' as const, 
+    color: C.purple, 
+    bg: C.purpleBg,
+    screen: 'StudentAttendance' 
+  },
+  { 
+    label: 'Clubs',           
+    icon: 'users' as const, 
+    color: C.pink,   
+    bg: C.pinkBg,
+    screen: 'StudentClubs' 
+  },
+];
+
+// ✅ Nouvelles fonctionnalités (avec Historique des paiements)
+const STUDENT_FEATURES = [
+  { id: 'announcements', label: 'Annonces', icon: 'bell' as const, screen: 'Announcements', color: C.blue },
+  { id: 'elections', label: 'Élections & BDE', icon: 'award' as const, screen: 'StudentElections', color: C.purple },
+  { id: 'courses', label: 'Cours', icon: 'book' as const, screen: 'StudentCourse', color: C.green },
+  { id: 'messaging', label: 'Messagerie', icon: 'message-circle' as const, screen: 'Messaging', color: C.accent },
+  { id: 'library', label: 'Bibliothèque', icon: 'book-open' as const, screen: 'StudentLibrary', color: C.amber },
+  { id: 'rooms', label: 'Salles', icon: 'map-pin' as const, screen: 'StudentRooms', color: C.teal },
+  { id: 'paymentHistory', label: 'Historique paiements', icon: 'credit-card' as const, screen: 'StudentPaymentHistory', color: C.green }, // ✅ Ajout
 ];
 
 const getMentionStyle = (mention: string) => {
@@ -103,12 +142,17 @@ const SectionTitle = ({ children }: { children: string }) => (
 
 export const StudentHomeScreen: React.FC = () => {
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [student] = useState(MOCK_STUDENT);
 
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const navigateTo = (screen: string, params?: any) => {
+    navigation.navigate(screen, params);
   };
 
   if (!user) return <LoadingSpinner fullScreen />;
@@ -136,7 +180,6 @@ export const StudentHomeScreen: React.FC = () => {
           overflow: 'hidden',
           position: 'relative',
         }}>
-          {/* Halo décoratif */}
           <View style={{
             position: 'absolute', top: -50, right: -50,
             width: 200, height: 200,
@@ -150,12 +193,10 @@ export const StudentHomeScreen: React.FC = () => {
             borderRadius: 70,
           }} />
 
-          {/* Top bar */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.5, color: C.accent, textTransform: 'uppercase' }}>
               SURYA
             </Text>
-            {/* Avatar */}
             <LinearGradient
               colors={['#3730A3', '#6366F1']}
               style={{ width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
@@ -164,7 +205,6 @@ export const StudentHomeScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
-          {/* Salutation */}
           <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600' }}>
             Bonjour,
           </Text>
@@ -200,7 +240,6 @@ export const StudentHomeScreen: React.FC = () => {
               Moyenne générale
             </Text>
 
-            {/* Cercle moyenne */}
             <View style={{
               width: 96, height: 96, borderRadius: 48,
               backgroundColor: mention.bg,
@@ -216,7 +255,6 @@ export const StudentHomeScreen: React.FC = () => {
               </Text>
             </View>
 
-            {/* Badge mention */}
             <View style={{
               backgroundColor: mention.bg,
               borderRadius: 8, borderWidth: 1,
@@ -229,7 +267,6 @@ export const StudentHomeScreen: React.FC = () => {
               </Text>
             </View>
 
-            {/* Rang & Présence */}
             <View style={{
               flexDirection: 'row',
               width: '100%',
@@ -247,7 +284,6 @@ export const StudentHomeScreen: React.FC = () => {
                 </Text>
               </View>
 
-              {/* Séparateur vertical */}
               <View style={{ width: 1, backgroundColor: C.borderSub, marginHorizontal: 8 }} />
 
               <View style={{ flex: 1, alignItems: 'center' }}>
@@ -299,13 +335,14 @@ export const StudentHomeScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* ───── Accès rapide ───── */}
+          {/* ───── Accès rapide avec navigation ───── */}
           <SectionTitle>Accès rapide</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {QUICK_ACCESS.map((item) => (
               <TouchableOpacity
                 key={item.label}
                 activeOpacity={0.75}
+                onPress={() => navigateTo(item.screen)}
                 style={{
                   width: '47.5%',
                   backgroundColor: C.surface,
@@ -322,6 +359,41 @@ export const StudentHomeScreen: React.FC = () => {
                   width: 38, height: 38,
                   borderRadius: 11,
                   backgroundColor: item.bg,
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Feather name={item.icon} size={18} color={item.color} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary, flexShrink: 1 }}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ───── Services / Fonctionnalités ───── */}
+          <SectionTitle>Services</SectionTitle>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {STUDENT_FEATURES.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.75}
+                onPress={() => navigateTo(item.screen, { userRole: 'student' })}
+                style={{
+                  width: '47.5%',
+                  backgroundColor: C.surface,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: C.border,
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <View style={{
+                  width: 38, height: 38,
+                  borderRadius: 11,
+                  backgroundColor: item.color + '15',
                   alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Feather name={item.icon} size={18} color={item.color} />
@@ -366,6 +438,7 @@ export const StudentHomeScreen: React.FC = () => {
 
           <TouchableOpacity
             activeOpacity={0.7}
+            onPress={() => navigateTo('StudentGrades')}
             style={{
               marginTop: 4,
               paddingVertical: 12,

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../../components/ui/Card';
 import { Avatar } from '../../components/ui/Avatar';
@@ -43,6 +44,8 @@ const C = {
   textSecondary: '#CDD0E0',
   textMuted: '#4A5060',
   textDim: '#2E3245',
+  teal: '#2DD4BF',
+  tealBg: 'rgba(45,212,191,0.09)',
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -88,13 +91,13 @@ const MOCK_CHILD: ChildDetail = {
 const getMentionConfig = (mention?: string) => {
   switch (mention) {
     case 'EXCELLENT':
-      return { label: 'Excellent', color: C.green, bg: C.greenBg, icon: '🌟' };
+      return { label: 'Excellent', color: C.green, bg: C.greenBg, icon: 'award' as const };
     case 'TRES_BIEN':
-      return { label: 'Très bien', color: C.blue, bg: C.blueBg, icon: '⭐' };
+      return { label: 'Très bien', color: C.blue, bg: C.blueBg, icon: 'award' as const };
     case 'BIEN':
-      return { label: 'Bien', color: C.accent, bg: C.accentBg, icon: '✨' };
+      return { label: 'Bien', color: C.accent, bg: C.accentBg, icon: 'star' as const };
     case 'ASSEZ_BIEN':
-      return { label: 'Assez bien', color: C.amber, bg: C.amberBg, icon: '📈' };
+      return { label: 'Assez bien', color: C.amber, bg: C.amberBg, icon: 'trending-up' as const };
     default:
       return null;
   }
@@ -115,14 +118,18 @@ const StatCard = ({
   label,
   color,
   subtitle,
+  onPress,
 }: {
   icon: React.ReactNode;
   value: string | number;
   label: string;
   color: string;
   subtitle?: string;
+  onPress?: () => void;
 }) => (
-  <View
+  <TouchableOpacity
+    activeOpacity={0.7}
+    onPress={onPress}
     style={{
       flex: 1,
       backgroundColor: C.surfaceAlt,
@@ -176,7 +183,7 @@ const StatCard = ({
         {subtitle}
       </Text>
     )}
-  </View>
+  </TouchableOpacity>
 );
 
 // ─── Quick Action ──────────────────────────────────────────────────────────
@@ -186,13 +193,16 @@ const QuickAction = ({
   label,
   icon,
   color,
+  onPress,
 }: {
   label: string;
   icon: FeatherIconName;
   color: string;
+  onPress?: () => void;
 }) => (
   <TouchableOpacity
     activeOpacity={0.7}
+    onPress={onPress}
     style={{
       width: '30%',
       backgroundColor: C.surfaceAlt,
@@ -272,6 +282,7 @@ const InfoRow: React.FC<InfoRowProps> = ({
 // ─── Screen ─────────────────────────────────────────────────────────────────
 export const ChildDetailScreen: React.FC = () => {
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [child] = useState(MOCK_CHILD);
 
@@ -285,7 +296,6 @@ export const ChildDetailScreen: React.FC = () => {
   const infoOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Animation du profil
     Animated.parallel([
       Animated.spring(profileScale, {
         toValue: 1,
@@ -300,7 +310,6 @@ export const ChildDetailScreen: React.FC = () => {
       }),
     ]).start();
 
-    // Animation des statistiques
     Animated.parallel([
       Animated.spring(statsTranslateY, {
         toValue: 0,
@@ -316,7 +325,6 @@ export const ChildDetailScreen: React.FC = () => {
       }),
     ]).start();
 
-    // Animation des actions
     Animated.timing(actionsOpacity, {
       toValue: 1,
       duration: 300,
@@ -324,7 +332,6 @@ export const ChildDetailScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
 
-    // Animation des informations
     Animated.parallel([
       Animated.spring(infoTranslateY, {
         toValue: 0,
@@ -346,6 +353,10 @@ export const ChildDetailScreen: React.FC = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  const navigateTo = (screen: string, params?: any) => {
+    navigation.navigate(screen, params);
+  };
+
   if (!user) return <LoadingSpinner fullScreen />;
 
   const initials = `${user.prenoms?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase();
@@ -355,13 +366,20 @@ export const ChildDetailScreen: React.FC = () => {
     ? getGradeColor(child.moyenneGenerale)
     : C.textMuted;
 
-  const quickActions: Array<{ label: string; icon: FeatherIconName; color: string }> = [
-    { label: 'Emploi du temps', icon: 'calendar', color: C.blue },
-    { label: 'Notes', icon: 'book-open', color: C.green },
-    { label: 'Paiements', icon: 'credit-card', color: C.amber },
-    { label: 'Présences', icon: 'check-square', color: C.purple },
-    { label: 'Clubs', icon: 'users', color: C.pink },
-    { label: 'Réclamation', icon: 'message-square', color: C.red },
+  const quickActions: Array<{ label: string; icon: FeatherIconName; color: string; screen: string; params?: any }> = [
+    { label: 'Emploi du temps', icon: 'calendar', color: C.blue, screen: 'StudentTimetable', params: {} },
+    { label: 'Notes', icon: 'book-open', color: C.green, screen: 'StudentGradeDetail', params: { reportId: '1' } },
+    { label: 'Paiements', icon: 'credit-card', color: C.amber, screen: 'ParentPayments', params: { childId: child.id } },
+    { label: 'Présences', icon: 'check-square', color: C.purple, screen: 'StudentAttendance', params: { childId: child.id } },
+    { label: 'Clubs', icon: 'users', color: C.pink, screen: 'StudentClubDetail', params: { clubId: '1' } },
+    { label: 'Réclamation', icon: 'message-square', color: C.red, screen: 'StudentComplaint', params: {} },
+    { label: 'Cours', icon: 'book', color: C.teal, screen: 'StudentCourse', params: {} }, // ✅ NOUVEAU BOUTON
+  ];
+
+  // Services supplémentaires - Messagerie et Annonces supprimés
+  const services = [
+    { label: 'Parcours scolaire', icon: 'trending-up' as const, screen: 'StudentGrades', color: C.teal },
+    { label: 'Historique paiements', icon: 'credit-card' as const, screen: 'ParentPaymentHistory', color: C.green, params: { childId: child.id } },
   ];
 
   return (
@@ -385,7 +403,6 @@ export const ChildDetailScreen: React.FC = () => {
             position: 'relative',
           }}
         >
-          {/* Halos décoratifs */}
           <View
             style={{
               position: 'absolute',
@@ -420,6 +437,7 @@ export const ChildDetailScreen: React.FC = () => {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity
+                onPress={() => navigation.goBack()}
                 style={{
                   width: 40,
                   height: 40,
@@ -442,7 +460,7 @@ export const ChildDetailScreen: React.FC = () => {
                   textTransform: 'uppercase',
                 }}
               >
-                ✦ SURYA
+                SURYA
               </Text>
             </View>
 
@@ -462,7 +480,6 @@ export const ChildDetailScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
-          {/* Titre */}
           <Text
             style={{
               fontSize: 22,
@@ -488,12 +505,7 @@ export const ChildDetailScreen: React.FC = () => {
               opacity: profileOpacity,
             }}
           >
-            <Card
-              variant="default"
-              padding="lg"
-              glow
-            >
-              {/* Avatar */}
+            <Card variant="default" padding="lg" glow>
               <View style={{ marginTop: -36 }}>
                 <Avatar
                   source={child.photo}
@@ -506,7 +518,6 @@ export const ChildDetailScreen: React.FC = () => {
                 />
               </View>
 
-              {/* Nom */}
               <Text
                 style={{
                   fontSize: 20,
@@ -519,16 +530,11 @@ export const ChildDetailScreen: React.FC = () => {
                 {fullName}
               </Text>
 
-              {/* Badges */}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-                <Badge
-                  text={`📚 ${child.classe}`}
-                  variant="primary"
-                  size="sm"
-                />
+                <Badge text={`${child.classe}`} variant="primary" size="sm" />
                 {mentionConfig && (
                   <Badge
-                    text={`${mentionConfig.icon} ${mentionConfig.label}`}
+                    text={`${mentionConfig.label}`}
                     variant={
                       child.mention === 'EXCELLENT' ? 'success' :
                       child.mention === 'TRES_BIEN' ? 'info' :
@@ -541,7 +547,6 @@ export const ChildDetailScreen: React.FC = () => {
                 )}
               </View>
 
-              {/* Matricule */}
               <Text
                 style={{
                   fontSize: 12,
@@ -571,6 +576,7 @@ export const ChildDetailScreen: React.FC = () => {
               label="Moyenne"
               color={gradeColor}
               subtitle="/ 20"
+              onPress={() => navigateTo('StudentGradeDetail', { reportId: '1' })}
             />
 
             <StatCard
@@ -585,6 +591,7 @@ export const ChildDetailScreen: React.FC = () => {
               value={`${child.tauxPresence || 0}%`}
               label="Présence"
               color={C.green}
+              onPress={() => navigateTo('StudentAttendance', { childId: child.id })}
             />
           </Animated.View>
 
@@ -595,19 +602,18 @@ export const ChildDetailScreen: React.FC = () => {
               opacity: actionsOpacity,
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '700',
-                  color: C.textSecondary,
-                  letterSpacing: 0.5,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Actions rapides
-              </Text>
-            </View>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '700',
+                color: C.textSecondary,
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+                marginBottom: 12,
+              }}
+            >
+              Actions rapides
+            </Text>
 
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {quickActions.map((action) => (
@@ -616,7 +622,64 @@ export const ChildDetailScreen: React.FC = () => {
                   label={action.label}
                   icon={action.icon}
                   color={action.color}
+                  onPress={() => navigateTo(action.screen, action.params)}
                 />
+              ))}
+            </View>
+          </Animated.View>
+
+          {/* ───── Services supplémentaires ───── */}
+          <Animated.View
+            style={{
+              marginTop: 20,
+              opacity: actionsOpacity,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '700',
+                color: C.textSecondary,
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+                marginBottom: 12,
+              }}
+            >
+              Services
+            </Text>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {services.map((service) => (
+                <TouchableOpacity
+                  key={service.label}
+                  activeOpacity={0.75}
+                  onPress={() => navigateTo(service.screen, service.params)}
+                  style={{
+                    width: '47.5%',
+                    backgroundColor: C.surface,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: C.border,
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 11,
+                    backgroundColor: service.color + '15',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Feather name={service.icon} size={18} color={service.color} />
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary, flexShrink: 1 }}>
+                    {service.label}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </View>
           </Animated.View>
@@ -677,7 +740,6 @@ export const ChildDetailScreen: React.FC = () => {
               />
             </Card>
 
-            {/* Bouton téléchargement */}
             <TouchableOpacity
               activeOpacity={0.7}
               style={{

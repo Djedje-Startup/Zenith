@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -56,9 +57,13 @@ interface Child {
   moyenne?: number;
   statut: 'ACTIF' | 'INACTIF' | 'SUSPENDU';
   tauxPresence?: number;
+  anneeScolaire?: string;
+  peutReinscrire?: boolean;
 }
 
 // ─── Mock data ──────────────────────────────────────────────────────────────
+const CURRENT_YEAR = '2025-2026';
+
 const MOCK_CHILDREN: Child[] = [
   {
     id: '1',
@@ -70,6 +75,8 @@ const MOCK_CHILDREN: Child[] = [
     moyenne: 15.5,
     statut: 'ACTIF',
     tauxPresence: 92,
+    anneeScolaire: CURRENT_YEAR,
+    peutReinscrire: false,
   },
   {
     id: '2',
@@ -81,6 +88,8 @@ const MOCK_CHILDREN: Child[] = [
     moyenne: 17.2,
     statut: 'ACTIF',
     tauxPresence: 88,
+    anneeScolaire: '2024-2025',
+    peutReinscrire: true,
   },
   {
     id: '3',
@@ -92,6 +101,8 @@ const MOCK_CHILDREN: Child[] = [
     moyenne: 12.8,
     statut: 'SUSPENDU',
     tauxPresence: 65,
+    anneeScolaire: '2024-2025',
+    peutReinscrire: false,
   },
 ];
 
@@ -99,13 +110,13 @@ const MOCK_CHILDREN: Child[] = [
 const getStatutConfig = (statut: string) => {
   switch (statut) {
     case 'ACTIF':
-      return { label: 'Actif', color: C.green, bg: C.greenBg, icon: '✅' };
+      return { label: 'Actif', color: C.green, bg: C.greenBg, icon: 'check-circle' as const };
     case 'INACTIF':
-      return { label: 'Inactif', color: C.textMuted, bg: C.textDim + '30', icon: '⏸️' };
+      return { label: 'Inactif', color: C.textMuted, bg: C.textDim + '30', icon: 'clock' as const };
     case 'SUSPENDU':
-      return { label: 'Suspendu', color: C.amber, bg: C.amberBg, icon: '⚠️' };
+      return { label: 'Suspendu', color: C.amber, bg: C.amberBg, icon: 'alert-triangle' as const };
     default:
-      return { label: statut, color: C.red, bg: C.redBg, icon: '❌' };
+      return { label: statut, color: C.red, bg: C.redBg, icon: 'x-circle' as const };
   }
 };
 
@@ -119,10 +130,12 @@ const getGradeColor = (note: number) => {
 
 // ─── Child Card ─────────────────────────────────────────────────────────────
 const ChildCard = ({ child, index }: { child: Child; index: number }) => {
+  const navigation = useNavigation<any>();
   const statutConfig = getStatutConfig(child.statut);
   const fullName = `${child.prenoms} ${child.nom}`;
   const gradeColor = child.moyenne !== undefined ? getGradeColor(child.moyenne) : C.textMuted;
   const isActive = child.statut === 'ACTIF';
+  const canReinscrire = child.peutReinscrire || false;
 
   // Animation
   const translateY = useRef(new Animated.Value(15)).current;
@@ -144,6 +157,16 @@ const ChildCard = ({ child, index }: { child: Child; index: number }) => {
       }),
     ]).start();
   }, []);
+
+  const navigateTo = (screen: string, params?: any) => {
+    navigation.navigate(screen, params);
+  };
+
+  const handleReinscription = () => {
+    if (canReinscrire) {
+      navigation.navigate('EnrollmentForm', { childId: child.id, childName: fullName });
+    }
+  };
 
   return (
     <Animated.View
@@ -175,203 +198,264 @@ const ChildCard = ({ child, index }: { child: Child; index: number }) => {
 
         {/* Contenu principal */}
         <View style={{ paddingTop: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {/* Avatar */}
-            <Avatar
-              source={child.photo}
-              name={fullName}
-              size="lg"
-              gradient
-              ring={isActive}
-              ringColor={isActive ? C.green : C.textMuted}
-            />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigateTo('ChildDetail', { childId: child.id })}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* Avatar */}
+              <Avatar
+                source={child.photo}
+                name={fullName}
+                size="lg"
+                gradient
+                ring={isActive}
+                ringColor={isActive ? C.green : C.textMuted}
+              />
 
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              {/* Nom et statut */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text
-                  style={{
-                    flex: 1,
-                    fontSize: 16,
-                    fontWeight: '700',
-                    color: isActive ? C.textPrimary : C.textMuted,
-                  }}
-                  numberOfLines={1}
-                >
-                  {fullName}
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                {/* Nom et statut */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: 16,
+                      fontWeight: '700',
+                      color: isActive ? C.textPrimary : C.textMuted,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {fullName}
+                  </Text>
+                  <Badge
+                    text={`${statutConfig.label}`}
+                    variant={child.statut === 'ACTIF' ? 'success' : child.statut === 'SUSPENDU' ? 'warning' : 'default'}
+                    size="sm"
+                  />
+                </View>
+
+                {/* Classe et école */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                  <Text style={{ fontSize: 14, color: C.textSecondary }}>
+                    {child.classe}
+                  </Text>
+                  <View
+                    style={{
+                      width: 3,
+                      height: 3,
+                      borderRadius: 1.5,
+                      backgroundColor: C.textMuted,
+                    }}
+                  />
+                  <Text style={{ fontSize: 12, color: C.textMuted }}>
+                    {child.schoolName}
+                  </Text>
+                </View>
+
+                {/* Matricule */}
+                <Text style={{ fontSize: 12, marginTop: 2, color: C.textDim }}>
+                  Matricule: {child.matricule}
                 </Text>
-                <Badge
-                  text={`${statutConfig.icon} ${statutConfig.label}`}
-                  variant={child.statut === 'ACTIF' ? 'success' : child.statut === 'SUSPENDU' ? 'warning' : 'default'}
-                  size="sm"
-                />
+
+                {/* Année scolaire */}
+                {child.anneeScolaire && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                    <Feather name="calendar" size={10} color={C.textMuted} />
+                    <Text style={{ fontSize: 10, color: C.textMuted }}>
+                      {child.anneeScolaire}
+                    </Text>
+                  </View>
+                )}
               </View>
 
-              {/* Classe et école */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                <Text style={{ fontSize: 14, color: C.textSecondary }}>
-                  {child.classe}
-                </Text>
+              {/* Moyenne */}
+              {child.moyenne !== undefined && (
                 <View
                   style={{
-                    width: 3,
-                    height: 3,
-                    borderRadius: 1.5,
-                    backgroundColor: C.textMuted,
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: gradeColor + '12',
+                    borderWidth: 1.5,
+                    borderColor: gradeColor + '30',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
-                />
-                <Text style={{ fontSize: 12, color: C.textMuted }}>
-                  {child.schoolName}
-                </Text>
-              </View>
-
-              {/* Matricule */}
-              <Text style={{ fontSize: 12, marginTop: 2, color: C.textDim }}>
-                Matricule: {child.matricule}
-              </Text>
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: gradeColor,
+                      letterSpacing: -0.5,
+                    }}
+                  >
+                    {child.moyenne.toFixed(1)}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 8,
+                      fontWeight: '600',
+                      color: gradeColor + '80',
+                    }}
+                  >
+                    /20
+                  </Text>
+                </View>
+              )}
             </View>
 
-            {/* Moyenne */}
-            {child.moyenne !== undefined && (
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: gradeColor + '12',
-                  borderWidth: 1.5,
-                  borderColor: gradeColor + '30',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '700',
-                    color: gradeColor,
-                    letterSpacing: -0.5,
-                  }}
-                >
-                  {child.moyenne.toFixed(1)}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 8,
-                    fontWeight: '600',
-                    color: gradeColor + '80',
-                  }}
-                >
-                  /20
+            {/* Statistiques */}
+            <View
+              style={{
+                flexDirection: 'row',
+                marginTop: 14,
+                paddingTop: 14,
+                borderTopWidth: 1,
+                borderTopColor: C.border,
+              }}
+            >
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Feather name="users" size={12} color={C.textMuted} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
+                    {child.tauxPresence || 0}%
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
+                  Présence
                 </Text>
               </View>
-            )}
-          </View>
 
-          {/* Statistiques */}
+              <View
+                style={{
+                  width: 1,
+                  height: 24,
+                  backgroundColor: C.border,
+                }}
+              />
+
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Feather name="book" size={12} color={C.textMuted} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
+                    12
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
+                  Matières
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  width: 1,
+                  height: 24,
+                  backgroundColor: C.border,
+                }}
+              />
+
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Feather name="calendar" size={12} color={C.textMuted} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
+                    5
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
+                  Évaluations
+                </Text>
+              </View>
+            </View>
+
+            {/* Indicateur "Cliquer pour voir plus" */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 12,
+                paddingTop: 10,
+                borderTopWidth: 1,
+                borderTopColor: C.border,
+              }}
+            >
+              <Feather name="chevron-right" size={14} color={C.textMuted} />
+              <Text
+                style={{
+                  fontSize: 10,
+                  color: C.textMuted,
+                  marginLeft: 4,
+                  letterSpacing: 0.3,
+                }}
+              >
+                Voir le détail
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* ─── Bouton Réinscription ─── */}
           <View
             style={{
-              flexDirection: 'row',
-              marginTop: 14,
-              paddingTop: 14,
+              marginTop: 12,
+              paddingTop: 12,
               borderTopWidth: 1,
               borderTopColor: C.border,
             }}
           >
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="users" size={12} color={C.textMuted} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
-                  {child.tauxPresence || 0}%
-                </Text>
-              </View>
-              <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
-                Présence
-              </Text>
-            </View>
-
-            <View
+            <TouchableOpacity
+              activeOpacity={canReinscrire ? 0.8 : 1}
+              onPress={handleReinscription}
+              disabled={!canReinscrire}
               style={{
-                width: 1,
-                height: 24,
-                backgroundColor: C.border,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: canReinscrire ? C.accent : C.surfaceAlt,
+                borderWidth: 1,
+                borderColor: canReinscrire ? C.accent : C.border,
+                opacity: canReinscrire ? 1 : 0.5,
               }}
-            />
-
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="book" size={12} color={C.textMuted} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
-                  12
-                </Text>
-              </View>
-              <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
-                Matières
-              </Text>
-            </View>
-
-            <View
-              style={{
-                width: 1,
-                height: 24,
-                backgroundColor: C.border,
-              }}
-            />
-
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="calendar" size={12} color={C.textMuted} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
-                  5
-                </Text>
-              </View>
-              <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
-                Évaluations
-              </Text>
-            </View>
-          </View>
-
-          {/* Actions rapides */}
-          <View
-            style={{
-              flexDirection: 'row',
-              gap: 8,
-              marginTop: 12,
-            }}
-          >
-            {[
-              { label: 'Notes', icon: 'book-open', color: C.accent },
-              { label: 'Emploi du temps', icon: 'calendar', color: C.blue },
-              { label: 'Présences', icon: 'check-circle', color: C.green },
-            ].map((action) => (
-              <TouchableOpacity
-                key={action.label}
-                activeOpacity={0.7}
+            >
+              <Feather
+                name="edit-2"
+                size={16}
+                color={canReinscrire ? '#FFFFFF' : C.textMuted}
+              />
+              <Text
                 style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  paddingVertical: 8,
-                  borderRadius: 10,
-                  backgroundColor: C.surfaceAlt,
-                  borderWidth: 1,
-                  borderColor: C.border,
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: canReinscrire ? '#FFFFFF' : C.textMuted,
+                  letterSpacing: 0.2,
                 }}
               >
-                <Feather name={action.icon as any} size={13} color={action.color} />
-                <Text
+                {canReinscrire ? 'Réinscrire' : 'Année en cours'}
+              </Text>
+              {!canReinscrire && (
+                <View
                   style={{
-                    fontSize: 10,
-                    fontWeight: '500',
-                    color: action.color,
+                    backgroundColor: C.textDim + '40',
+                    borderRadius: 4,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
                   }}
                 >
-                  {action.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={{
+                      fontSize: 8,
+                      fontWeight: '600',
+                      color: C.textMuted,
+                    }}
+                  >
+                    ACTIF
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Card>
@@ -414,7 +498,7 @@ const Header = ({ children, count }: { children: string; count: number }) => {
           left: -20,
           width: 140,
           height: 140,
-          backgroundColor: 'rgba(52,211,153,0.04)',
+          backgroundColor: 'rgba(167,139,250,0.05)',
           borderRadius: 70,
         }}
       />
@@ -452,7 +536,7 @@ const Header = ({ children, count }: { children: string; count: number }) => {
               textTransform: 'uppercase',
             }}
           >
-            ✦ SURYA
+            SURYA
           </Text>
         </View>
 

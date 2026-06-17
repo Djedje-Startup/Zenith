@@ -56,7 +56,6 @@ const MOCK_USERS: Record<string, { user: User; password: string }> = {
   },
 };
 
-// Store unique
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
   isAuthenticated: false,

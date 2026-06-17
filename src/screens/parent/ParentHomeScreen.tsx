@@ -1,4 +1,4 @@
-// screens/parent/ParentHomeScreen.tsx (ou HomeScreen.tsx)
+// screens/parent/ParentHomeScreen.tsx
 import React from 'react';
 import {
   View,
@@ -9,7 +9,9 @@ import {
   StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAppStore } from '../../store'; // ✅ Changement ici
+import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useAppStore } from '../../store';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
 const COLORS = {
@@ -23,6 +25,12 @@ const COLORS = {
   green: '#34D399',
   greenBg: 'rgba(16,185,129,0.09)',
   red: '#EF4444',
+  blue: '#60A5FA',
+  blueBg: 'rgba(96,165,250,0.09)',
+  purple: '#A78BFA',
+  purpleBg: 'rgba(167,139,250,0.09)',
+  amber: '#FBBF24',
+  amberBg: 'rgba(251,191,36,0.09)',
   textPrimary: '#DDE0ED',
   textSecondary: '#C0C4D8',
   textMuted: '#4A5060',
@@ -70,6 +78,23 @@ const MOCK_STATS: DashboardStats = {
   ],
 };
 
+// ✅ Services pour les parents - avec icônes Feather valides
+// Supprimé: childrenCourses (Cours de mes enfants) et enrollment (Réinscription)
+const PARENT_FEATURES = [
+  { id: 'announcements', label: 'Annonces', icon: 'bell' as const, screen: 'Announcements', color: COLORS.accent },
+  { id: 'schools', label: 'Établissements', icon: 'home' as const, screen: 'SchoolList', color: COLORS.green },
+  { id: 'teachers', label: 'Professeurs', icon: 'users' as const, screen: 'ParentTeachers', color: COLORS.purple },
+  { id: 'messaging', label: 'Messagerie', icon: 'message-circle' as const, screen: 'Messaging', color: COLORS.amber },
+];
+
+// ✅ Accès rapide existant - avec icônes Feather valides
+const QUICK_ACCESS = [
+  { label: 'Mes enfants', icon: 'users' as const, screen: 'ChildrenList', color: COLORS.blue },
+  { label: 'Paiements', icon: 'credit-card' as const, screen: 'ParentPayments', color: COLORS.green },
+  { label: 'Clubs', icon: 'users' as const, screen: 'ParentClubs', color: COLORS.purple },
+  { label: 'Profil', icon: 'user' as const, screen: 'Profile', color: COLORS.accent },
+];
+
 const GradeBubble = ({ note }: { note: number }) => {
   const isGood = note >= 15;
   const isMedium = note >= 10 && note < 15;
@@ -89,8 +114,23 @@ const GradeBubble = ({ note }: { note: number }) => {
   );
 };
 
+const SectionTitle = ({ children }: { children: string }) => (
+  <Text style={{
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7880A0',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    marginTop: 22,
+    marginBottom: 10,
+  }}>
+    {children}
+  </Text>
+);
+
 export const ParentHomeScreen: React.FC = () => {
-  const { user } = useAppStore(); // ✅ Changement ici
+  const { user } = useAppStore();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = React.useState(false);
   const [stats] = React.useState(MOCK_STATS);
 
@@ -98,6 +138,10 @@ export const ParentHomeScreen: React.FC = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
+
+  const navigateTo = (screen: string, params?: any) => {
+    navigation.navigate(screen, params);
+  };
 
   if (!user) return <LoadingSpinner fullScreen />;
 
@@ -146,20 +190,23 @@ export const ParentHomeScreen: React.FC = () => {
               color: COLORS.accent,
               textTransform: 'uppercase',
             }}>
-              ✦ SURYA
+              SURYA
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <TouchableOpacity style={{
-                width: 40,
-                height: 40,
-                backgroundColor: '#161A24',
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <Text style={{ fontSize: 16, color: '#8088A8' }}>🔔</Text>
+              <TouchableOpacity 
+                style={{
+                  width: 40,
+                  height: 40,
+                  backgroundColor: '#161A24',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onPress={() => navigateTo('Notifications')}
+              >
+                <Feather name="bell" size={18} color="#8088A8" />
                 {stats.notificationsNonLues > 0 && (
                   <View style={{
                     position: 'absolute',
@@ -175,20 +222,22 @@ export const ParentHomeScreen: React.FC = () => {
                 )}
               </TouchableOpacity>
 
-              <LinearGradient
-                colors={['#3730A3', '#6366F1']}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#C7D2FE' }}>
-                  {initials}
-                </Text>
-              </LinearGradient>
+              <TouchableOpacity onPress={() => navigateTo('Profile')}>
+                <LinearGradient
+                  colors={['#3730A3', '#6366F1']}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#C7D2FE' }}>
+                    {initials}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -261,7 +310,7 @@ export const ParentHomeScreen: React.FC = () => {
                 justifyContent: 'center',
                 marginBottom: 8,
               }}>
-                <Text style={{ fontSize: 16 }}>📈</Text>
+                <Feather name="trending-up" size={18} color={COLORS.green} />
               </View>
               <Text style={{ fontSize: 22, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.5 }}>
                 15
@@ -290,7 +339,7 @@ export const ParentHomeScreen: React.FC = () => {
                 justifyContent: 'center',
                 marginBottom: 8,
               }}>
-                <Text style={{ fontSize: 16 }}>✅</Text>
+                <Feather name="check-square" size={18} color={COLORS.accentDim} />
               </View>
               <Text style={{ fontSize: 22, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.5 }}>
                 92
@@ -302,20 +351,80 @@ export const ParentHomeScreen: React.FC = () => {
             </View>
           </View>
 
+          {/* ───── Accès rapide ───── */}
+          <SectionTitle>Accès rapide</SectionTitle>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {QUICK_ACCESS.map((item) => (
+              <TouchableOpacity
+                key={item.label}
+                activeOpacity={0.75}
+                onPress={() => navigateTo(item.screen)}
+                style={{
+                  width: '47.5%',
+                  backgroundColor: COLORS.surface,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <View style={{
+                  width: 38, height: 38,
+                  borderRadius: 11,
+                  backgroundColor: item.color + '15',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Feather name={item.icon} size={18} color={item.color} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, flexShrink: 1 }}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ───── Services / Fonctionnalités ───── */}
+          <SectionTitle>Services</SectionTitle>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {PARENT_FEATURES.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.75}
+                onPress={() => navigateTo(item.screen, { userRole: 'parent' })}
+                style={{
+                  width: '47.5%',
+                  backgroundColor: COLORS.surface,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <View style={{
+                  width: 38, height: 38,
+                  borderRadius: 11,
+                  backgroundColor: item.color + '15',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Feather name={item.icon} size={18} color={item.color} />
+                </View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, flexShrink: 1 }}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           {/* ───── Dernières notes ───── */}
           {stats.dernieresNotes.length > 0 && (
             <View style={{ marginBottom: 4 }}>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: '#7880A0',
-                textTransform: 'uppercase',
-                letterSpacing: 1.2,
-                marginTop: 18,
-                marginBottom: 10,
-              }}>
-                Dernières notes
-              </Text>
+              <SectionTitle>Dernières notes</SectionTitle>
               {stats.dernieresNotes.map((note) => (
                 <View
                   key={note.id}
@@ -349,17 +458,7 @@ export const ParentHomeScreen: React.FC = () => {
           {/* ───── Événements ───── */}
           {stats.evenementsRecents.length > 0 && (
             <View style={{ marginBottom: 8 }}>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: '#7880A0',
-                textTransform: 'uppercase',
-                letterSpacing: 1.2,
-                marginTop: 18,
-                marginBottom: 10,
-              }}>
-                Événements à venir
-              </Text>
+              <SectionTitle>Événements à venir</SectionTitle>
               {stats.evenementsRecents.map((event) => (
                 <TouchableOpacity
                   key={event.id}
@@ -385,7 +484,7 @@ export const ParentHomeScreen: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <Text style={{ fontSize: 15, color: event.color }}>📅</Text>
+                    <Feather name="calendar" size={18} color={event.color} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 13, fontWeight: '600', color: '#C0C4D8' }}>
@@ -395,7 +494,7 @@ export const ParentHomeScreen: React.FC = () => {
                       {event.date} · {event.lieu}
                     </Text>
                   </View>
-                  <Text style={{ color: '#2A2E42', fontSize: 18 }}>›</Text>
+                  <Feather name="chevron-right" size={18} color="#2A2E42" />
                 </TouchableOpacity>
               ))}
             </View>

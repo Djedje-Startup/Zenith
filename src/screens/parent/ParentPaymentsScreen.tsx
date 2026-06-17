@@ -9,6 +9,9 @@ import {
   Alert,
   StatusBar,
   Animated,
+  Modal,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -160,6 +163,309 @@ const formatMontant = (montant: number) => `${montant.toLocaleString()} FCFA`;
 const getProgressPercentage = (montant: number, montantPaye: number) => {
   if (montant === 0) return 0;
   return Math.round((montantPaye / montant) * 100);
+};
+
+// ─── Payment Modal ──────────────────────────────────────────────────────────
+interface PaymentModalProps {
+  visible: boolean;
+  invoice: Invoice | null;
+  onClose: () => void;
+  onConfirm: (data: { operateur: string; password: string; numero: string }) => void;
+}
+
+const PaymentModal: React.FC<PaymentModalProps> = ({
+  visible,
+  invoice,
+  onClose,
+  onConfirm,
+}) => {
+  const [selectedOperateur, setSelectedOperateur] = useState<string | null>(null);
+  const [numero, setNumero] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const operateurs = [
+    { id: 'MTN', label: 'MTN Mobile Money', icon: 'phone', color: '#FFCC00', bg: '#FFCC0015' },
+    { id: 'AIRTEL', label: 'Airtel Money', icon: 'phone', color: '#FF0000', bg: '#FF000015' },
+    { id: 'ORANGE', label: 'Orange Money', icon: 'phone', color: '#FF6600', bg: '#FF660015' },
+  ];
+
+  const handleConfirm = () => {
+    if (!selectedOperateur) {
+      Alert.alert('Opérateur requis', 'Veuillez sélectionner un opérateur');
+      return;
+    }
+    if (!numero || numero.length < 8) {
+      Alert.alert('Numéro invalide', 'Veuillez entrer un numéro valide (8 chiffres minimum)');
+      return;
+    }
+    if (!password || password.length < 4) {
+      Alert.alert('Code invalide', 'Veuillez entrer votre code Mobile Money (4 chiffres)');
+      return;
+    }
+
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        onConfirm({ operateur: selectedOperateur, password, numero });
+        onClose();
+      }, 2000);
+    }, 1500);
+  };
+
+  if (!invoice) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={{
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <View style={{
+          backgroundColor: C.surface,
+          borderRadius: 24,
+          borderWidth: 1,
+          borderColor: C.border,
+          width: '90%',
+          maxHeight: '90%',
+          padding: 24,
+        }}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: C.textPrimary,
+                letterSpacing: -0.5,
+              }}>
+                Paiement Mobile Money
+              </Text>
+              <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+                <Feather name="x" size={24} color={C.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Montant */}
+            <View style={{
+              backgroundColor: C.accentBg,
+              borderRadius: 16,
+              padding: 16,
+              alignItems: 'center',
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: C.accent + '30',
+            }}>
+              <Text style={{ fontSize: 12, color: C.textMuted }}>Montant à payer</Text>
+              <Text style={{
+                fontSize: 28,
+                fontWeight: '800',
+                color: C.textPrimary,
+                marginTop: 4,
+              }}>
+                {formatMontant(invoice.solde)}
+              </Text>
+              <Text style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>
+                {invoice.libelle}
+              </Text>
+            </View>
+
+            {/* Opérateurs */}
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: C.textSecondary,
+              marginBottom: 12,
+            }}>
+              Choisissez votre opérateur
+            </Text>
+            <View style={{ gap: 8, marginBottom: 20 }}>
+              {operateurs.map((op) => (
+                <TouchableOpacity
+                  key={op.id}
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedOperateur(op.id)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 14,
+                    borderRadius: 14,
+                    backgroundColor: selectedOperateur === op.id ? op.bg : C.surfaceAlt,
+                    borderWidth: 2,
+                    borderColor: selectedOperateur === op.id ? op.color : C.border,
+                  }}
+                >
+                  <View style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: selectedOperateur === op.id ? op.color + '20' : C.surface,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Feather name={op.icon as any} size={20} color={selectedOperateur === op.id ? op.color : C.textMuted} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: selectedOperateur === op.id ? op.color : C.textSecondary,
+                    }}>
+                      {op.label}
+                    </Text>
+                  </View>
+                  {selectedOperateur === op.id && (
+                    <View style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 10,
+                      backgroundColor: op.color,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <Feather name="check" size={12} color="#FFFFFF" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Numéro et Code */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: C.textMuted,
+                marginBottom: 6,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                Numéro Mobile Money
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: C.surfaceAlt,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: C.border,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 15,
+                  color: C.textPrimary,
+                }}
+                placeholder="Ex: 0612345678"
+                placeholderTextColor={C.textDim}
+                value={numero}
+                onChangeText={setNumero}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: C.textMuted,
+                marginBottom: 6,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                Code Mobile Money (4 chiffres)
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: C.surfaceAlt,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: C.border,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  fontSize: 15,
+                  color: C.textPrimary,
+                }}
+                placeholder="••••"
+                placeholderTextColor={C.textDim}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                keyboardType="numeric"
+                maxLength={4}
+              />
+            </View>
+
+            {/* Bouton de confirmation */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleConfirm}
+              disabled={isLoading || showSuccess}
+              style={{
+                backgroundColor: isLoading || showSuccess ? C.textMuted : C.accent,
+                borderRadius: 14,
+                paddingVertical: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'row',
+                gap: 8,
+                opacity: isLoading || showSuccess ? 0.7 : 1,
+              }}
+            >
+              {showSuccess ? (
+                <>
+                  <Feather name="check-circle" size={20} color="#FFFFFF" />
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
+                    Paiement réussi !
+                  </Text>
+                </>
+              ) : isLoading ? (
+                <>
+                  <View style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: 10,
+                    borderWidth: 2,
+                    borderColor: 'rgba(255,255,255,0.3)',
+                    borderTopColor: '#FFFFFF',
+                    transform: [{ rotate: '45deg' }],
+                  }} />
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
+                    En cours...
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Feather name="credit-card" size={20} color="#FFFFFF" />
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
+                    Confirmer le paiement
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Footer */}
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 11,
+              color: C.textDim,
+              marginTop: 16,
+            }}>
+              Vous recevrez une confirmation par SMS
+            </Text>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
 };
 
 // ─── Progress Bar ──────────────────────────────────────────────────────────
@@ -562,7 +868,7 @@ const Header = ({ children, count }: { children: string; count: number }) => {
               textTransform: 'uppercase',
             }}
           >
-            ✦ SURYA
+            SURYA
           </Text>
         </View>
 
@@ -648,6 +954,8 @@ export const ParentPaymentsScreen: React.FC = () => {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState(MOCK_INVOICES);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -655,23 +963,42 @@ export const ParentPaymentsScreen: React.FC = () => {
   };
 
   const handlePay = (invoice: Invoice) => {
-    Alert.alert(
-      'Confirmation de paiement',
-      `Voulez-vous payer le solde de ${formatMontant(invoice.solde)} pour "${invoice.libelle}" ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer',
-          onPress: () => {
-            Alert.alert(
-              'Paiement effectué',
-              'Votre paiement a été enregistré avec succès',
-              [{ text: 'OK' }]
-            );
-          },
-        },
-      ]
+    setSelectedInvoice(invoice);
+    setModalVisible(true);
+  };
+
+  const handleConfirmPayment = (data: { operateur: string; password: string; numero: string }) => {
+    // Mettre à jour la facture
+    setInvoices(prev =>
+      prev.map(inv =>
+        inv.id === selectedInvoice?.id 
+          ? { 
+              ...inv, 
+              statut: 'PAYEE' as const,
+              montantPaye: inv.montant,
+              solde: 0,
+              paiements: [
+                ...(inv.paiements || []),
+                { 
+                  id: `p${Date.now()}`, 
+                  date: new Date().toLocaleDateString('fr-FR'), 
+                  montant: inv.montant,
+                  mode: `Mobile Money (${data.operateur})` 
+                }
+              ]
+            } 
+          : inv
+      )
     );
+    
+    Alert.alert(
+      '✅ Paiement confirmé',
+      `Votre paiement de ${formatMontant(selectedInvoice?.montant || 0)} a été effectué avec succès.\n\nOpérateur: ${data.operateur}\nNuméro: ${data.numero}\nFacture: ${selectedInvoice?.numero}`,
+      [{ text: 'OK' }]
+    );
+    
+    setModalVisible(false);
+    setSelectedInvoice(null);
   };
 
   if (!user) return <LoadingSpinner fullScreen />;
@@ -730,6 +1057,17 @@ export const ParentPaymentsScreen: React.FC = () => {
             </Text>
           </View>
         )}
+      />
+
+      {/* Modal de paiement */}
+      <PaymentModal
+        visible={modalVisible}
+        invoice={selectedInvoice}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedInvoice(null);
+        }}
+        onConfirm={handleConfirmPayment}
       />
     </View>
   );
