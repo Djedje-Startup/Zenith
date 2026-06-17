@@ -1,4 +1,3 @@
-// screens/professeur/TeacherHomeScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -6,19 +5,38 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
-import { MotiView } from 'moti';
-import { StatusBar } from 'expo-status-bar';
-import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../hooks/useTheme';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Avatar } from '../../components/ui/Avatar';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 
-// Mock data
+const C = {
+  bg: '#0E1117',
+  surface: '#12151E',
+  surfaceAlt: '#161A24',
+  border: '#1C2030',
+  borderSub: '#141720',
+  accent: '#6366F1',
+  accentDim: '#818CF8',
+  accentBg: 'rgba(99,102,241,0.10)',
+  green: '#34D399',
+  greenBg: 'rgba(16,185,129,0.09)',
+  teal: '#2DD4BF',
+  tealBg: 'rgba(45,212,191,0.09)',
+  blue: '#60A5FA',
+  blueBg: 'rgba(96,165,250,0.09)',
+  purple: '#A78BFA',
+  purpleBg: 'rgba(167,139,250,0.09)',
+  amber: '#FBBF24',
+  amberBg: 'rgba(251,191,36,0.09)',
+  red: '#EF4444',
+  textPrimary: '#E8EAF0',
+  textSecondary: '#CDD0E0',
+  textMuted: '#4A5060',
+  textDim: '#2E3245',
+};
+
 const MOCK_TEACHER = {
   nom: 'NGOMA',
   prenoms: 'Paul',
@@ -27,9 +45,9 @@ const MOCK_TEACHER = {
     { id: '2', nom: 'Physique-Chimie' },
   ],
   classes: [
-    { id: '1', nom: '3ème A', niveau: '3ème', effectif: 32 },
-    { id: '2', nom: '4ème B', niveau: '4ème', effectif: 28 },
-    { id: '3', nom: 'Terminale C', niveau: 'Terminale', effectif: 24 },
+    { id: '1', nom: '3ème A', effectif: 32 },
+    { id: '2', nom: '4ème B', effectif: 28 },
+    { id: '3', nom: 'Terminale C', effectif: 24 },
   ],
   coursAujourdhui: [
     {
@@ -39,7 +57,7 @@ const MOCK_TEACHER = {
       heureDebut: '08:00',
       heureFin: '09:30',
       salle: 'A101',
-      statut: 'A_VENIR',
+      statut: 'EN_COURS',
     },
     {
       id: '2',
@@ -58,9 +76,34 @@ const MOCK_TEACHER = {
   },
 };
 
+const QUICK_ACTIONS = [
+  { label: 'Saisir notes',  icon: '✏️', color: C.amber,  bg: C.amberBg  },
+  { label: "Faire l'appel", icon: '✅', color: C.teal,   bg: C.tealBg   },
+  { label: 'Mes classes',   icon: '👥', color: C.purple, bg: C.purpleBg },
+];
+
+const SectionTitle = ({ children, action, onAction }: {
+  children: string;
+  action?: string;
+  onAction?: () => void;
+}) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 10 }}>
+    <Text style={{
+      fontSize: 11, fontWeight: '700', color: '#7880A0',
+      textTransform: 'uppercase', letterSpacing: 1.2,
+    }}>
+      {children}
+    </Text>
+    {action && (
+      <TouchableOpacity onPress={onAction}>
+        <Text style={{ fontSize: 12, color: C.accentDim, fontWeight: '600' }}>{action}</Text>
+      </TouchableOpacity>
+    )}
+  </View>
+);
+
 export const TeacherHomeScreen: React.FC = () => {
   const { user } = useAuth();
-  const { isDark } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [teacher] = useState(MOCK_TEACHER);
 
@@ -71,183 +114,256 @@ export const TeacherHomeScreen: React.FC = () => {
 
   if (!user) return <LoadingSpinner fullScreen />;
 
+  const initials = `${teacher.prenoms[0]}${teacher.nom[0]}`.toUpperCase();
+
   return (
-    <ScrollView
-      className="flex-1 bg-gray-50 dark:bg-gray-900"
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
 
-      {/* Header avec dégradé */}
-      <LinearGradient
-        colors={['#F5A623', '#E0950A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: 48, paddingBottom: 28, paddingHorizontal: 20 }}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+        }
       >
-        <View className="flex-row justify-between items-center">
-          <View>
-            <Text className="text-white/80 text-sm">Bonjour,</Text>
-            <Text className="text-white text-2xl font-bold mt-1">
-              {teacher.prenoms} {teacher.nom}
-            </Text>
-          </View>
-          <TouchableOpacity className="relative p-2">
-            <Feather name="bell" size={22} color="white" />
-            {teacher.notificationsNonLues > 0 && (
-              <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 items-center justify-center">
-                <Text className="text-white text-xs font-bold">
-                  {teacher.notificationsNonLues > 9 ? '9+' : teacher.notificationsNonLues}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+        {/* ───── Header ───── */}
+        <View style={{
+          backgroundColor: '#12151E',
+          paddingTop: 56,
+          paddingBottom: 40,
+          paddingHorizontal: 22,
+          overflow: 'hidden',
+          position: 'relative',
+        }}>
+          <View style={{
+            position: 'absolute', top: -50, right: -50,
+            width: 200, height: 200,
+            backgroundColor: 'rgba(99,102,241,0.06)',
+            borderRadius: 100,
+          }} />
+          <View style={{
+            position: 'absolute', bottom: -30, left: -20,
+            width: 140, height: 140,
+            backgroundColor: 'rgba(45,212,191,0.04)',
+            borderRadius: 70,
+          }} />
 
-      {/* Contenu */}
-      <View className="px-5 -mt-5">
-        {/* Stats rapides */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 100 }}
-          className="flex-row gap-4 mb-6"
-        >
-          <Card variant="elevated" className="flex-1 items-center py-4">
-            <Feather name="users" size={24} color="#3B82F6" />
-            <Text className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-              {teacher.classes.length}
+          {/* Top bar */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.5, color: C.accent, textTransform: 'uppercase' }}>
+              ✦ SURYA
             </Text>
-            <Text className="text-xs text-gray-500 dark:text-gray-400">Mes classes</Text>
-          </Card>
-          <Card variant="elevated" className="flex-1 items-center py-4">
-            <Feather name="users" size={24} color="#10B981" />
-            <Text className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-              {teacher.statistiques.totalEleves}
-            </Text>
-            <Text className="text-xs text-gray-500 dark:text-gray-400">Total élèves</Text>
-          </Card>
-          <Card variant="elevated" className="flex-1 items-center py-4">
-            <Feather name="trending-up" size={24} color="#F5A623" />
-            <Text className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-              {teacher.statistiques.moyenneClasses.toFixed(1)}
-            </Text>
-            <Text className="text-xs text-gray-500 dark:text-gray-400">Moyenne</Text>
-          </Card>
-        </MotiView>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              {/* Cloche */}
+              <TouchableOpacity style={{
+                width: 40, height: 40,
+                backgroundColor: '#161A24',
+                borderRadius: 12, borderWidth: 1, borderColor: C.border,
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Text style={{ fontSize: 16, color: '#8088A8' }}>🔔</Text>
+                {teacher.notificationsNonLues > 0 && (
+                  <View style={{
+                    position: 'absolute', top: 8, right: 9,
+                    width: 8, height: 8,
+                    backgroundColor: C.red, borderRadius: 4,
+                    borderWidth: 2, borderColor: '#161A24',
+                  }} />
+                )}
+              </TouchableOpacity>
 
-        {/* Actions rapides */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 150 }}
-          className="mb-6"
-        >
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-            Actions rapides
-          </Text>
-          <View className="flex-row gap-3">
-            <TouchableOpacity className="flex-1 bg-white dark:bg-gray-800 rounded-xl p-4 items-center shadow-sm">
-              <View className="w-12 h-12 rounded-full items-center justify-center mb-2" style={{ backgroundColor: '#F5A62320' }}>
-                <Feather name="edit-3" size={22} color="#F5A623" />
-              </View>
-              <Text className="text-sm text-gray-700 dark:text-gray-300">Saisir notes</Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="flex-1 bg-white dark:bg-gray-800 rounded-xl p-4 items-center shadow-sm">
-              <View className="w-12 h-12 rounded-full items-center justify-center mb-2" style={{ backgroundColor: '#2DD4BF20' }}>
-                <Feather name="check-square" size={22} color="#2DD4BF" />
-              </View>
-              <Text className="text-sm text-gray-700 dark:text-gray-300">Faire l'appel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="flex-1 bg-white dark:bg-gray-800 rounded-xl p-4 items-center shadow-sm">
-              <View className="w-12 h-12 rounded-full items-center justify-center mb-2" style={{ backgroundColor: '#8B5CF620' }}>
-                <Feather name="users" size={22} color="#8B5CF6" />
-              </View>
-              <Text className="text-sm text-gray-700 dark:text-gray-300">Mes classes</Text>
-            </TouchableOpacity>
-          </View>
-        </MotiView>
-
-        {/* Cours du jour */}
-        <MotiView
-          from={{ opacity: 0, translateX: -20 }}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ delay: 200 }}
-          className="mb-6"
-        >
-          <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-lg font-semibold text-gray-900 dark:text-white">Cours du jour</Text>
-            <TouchableOpacity>
-              <Text className="text-primary-500 text-sm">Voir tout</Text>
-            </TouchableOpacity>
-          </View>
-          {teacher.coursAujourdhui.map((cours, index) => (
-            <MotiView
-              key={cours.id}
-              from={{ opacity: 0, translateX: -20 }}
-              animate={{ opacity: 1, translateX: 0 }}
-              transition={{ delay: 250 + index * 50 }}
-            >
-              <Card variant="elevated" className="mb-3 p-4">
-                <View className="flex-row justify-between items-start">
-                  <View className="flex-1">
-                    <Text className="text-base font-semibold text-gray-900 dark:text-white">
-                      {cours.matiere}
-                    </Text>
-                    <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {cours.classe}
-                    </Text>
-                    <View className="flex-row items-center gap-3 mt-2">
-                      <View className="flex-row items-center gap-1">
-                        <Feather name="clock" size={12} color="#94A3B8" />
-                        <Text className="text-xs text-gray-400">
-                          {cours.heureDebut} - {cours.heureFin}
-                        </Text>
-                      </View>
-                      <View className="flex-row items-center gap-1">
-                        <Feather name="map-pin" size={12} color="#94A3B8" />
-                        <Text className="text-xs text-gray-400">Salle {cours.salle}</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <Badge
-                    text={cours.statut === 'EN_COURS' ? 'En cours' : 'À venir'}
-                    variant={cours.statut === 'EN_COURS' ? 'success' : 'default'}
-                    size="sm"
-                  />
-                </View>
-              </Card>
-            </MotiView>
-          ))}
-        </MotiView>
-
-        {/* Matières enseignées */}
-        <MotiView
-          from={{ opacity: 0, translateX: -20 }}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ delay: 300 }}
-          className="mb-8"
-        >
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-            Mes matières
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {teacher.matieres.map((matiere) => (
-              <View
-                key={matiere.id}
-                className="px-4 py-2 rounded-full"
-                style={{ backgroundColor: '#F5A62315' }}
+              {/* Avatar */}
+              <LinearGradient
+                colors={['#3730A3', '#6366F1']}
+                style={{ width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Text className="text-sm font-medium text-primary-600">
-                  {matiere.nom}
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>{initials}</Text>
+              </LinearGradient>
+            </View>
+          </View>
+
+          {/* Salutation */}
+          <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600' }}>
+            Bonjour,
+          </Text>
+          <Text style={{ fontSize: 22, fontWeight: '700', color: '#E8EAF0', marginTop: 3, letterSpacing: -0.3 }}>
+            {teacher.prenoms} {teacher.nom}
+          </Text>
+
+          {/* Matières pills */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            {teacher.matieres.map((m) => (
+              <View key={m.id} style={{
+                backgroundColor: C.accentBg,
+                borderRadius: 8, borderWidth: 1, borderColor: '#252A40',
+                paddingVertical: 4, paddingHorizontal: 10,
+              }}>
+                <Text style={{ fontSize: 11, color: C.accentDim, fontWeight: '600', letterSpacing: 0.3 }}>
+                  {m.nom}
                 </Text>
               </View>
             ))}
           </View>
-        </MotiView>
-      </View>
-    </ScrollView>
+        </View>
+
+        <View style={{ paddingHorizontal: 16, paddingBottom: 36 }}>
+
+          {/* ───── Stats rapides ───── */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: -20, marginBottom: 0 }}>
+            {[
+              { icon: '🏫', value: String(teacher.classes.length), label: 'Classes',     color: C.blue,   bg: C.blueBg   },
+              { icon: '👥', value: String(teacher.statistiques.totalEleves), label: 'Élèves', color: C.green,  bg: C.greenBg  },
+              { icon: '📈', value: teacher.statistiques.moyenneClasses.toFixed(1), label: 'Moyenne', color: C.amber, bg: C.amberBg  },
+            ].map((s) => (
+              <View key={s.label} style={{
+                flex: 1,
+                backgroundColor: C.surface,
+                borderRadius: 14, borderWidth: 1, borderColor: C.border,
+                padding: 14, alignItems: 'center',
+              }}>
+                <View style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  backgroundColor: s.bg,
+                  alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+                }}>
+                  <Text style={{ fontSize: 15 }}>{s.icon}</Text>
+                </View>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: s.color, letterSpacing: -0.5 }}>
+                  {s.value}
+                </Text>
+                <Text style={{ fontSize: 10, color: C.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: '500' }}>
+                  {s.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* ───── Actions rapides ───── */}
+          <SectionTitle>Actions rapides</SectionTitle>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {QUICK_ACTIONS.map((action) => (
+              <TouchableOpacity
+                key={action.label}
+                activeOpacity={0.75}
+                style={{
+                  flex: 1,
+                  backgroundColor: C.surface,
+                  borderRadius: 14, borderWidth: 1, borderColor: C.border,
+                  padding: 14, alignItems: 'center',
+                }}
+              >
+                <View style={{
+                  width: 42, height: 42, borderRadius: 12,
+                  backgroundColor: action.bg,
+                  alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+                }}>
+                  <Text style={{ fontSize: 18 }}>{action.icon}</Text>
+                </View>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: C.textSecondary, textAlign: 'center' }}>
+                  {action.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ───── Cours du jour ───── */}
+          <SectionTitle action="Voir tout" onAction={() => {}}>
+            Cours du jour
+          </SectionTitle>
+
+          {teacher.coursAujourdhui.map((cours) => {
+            const enCours = cours.statut === 'EN_COURS';
+            return (
+              <View
+                key={cours.id}
+                style={{
+                  backgroundColor: C.surface,
+                  borderRadius: 16, borderWidth: 1,
+                  borderColor: enCours ? `${C.green}30` : C.border,
+                  padding: 16, marginBottom: 10,
+                  position: 'relative', overflow: 'hidden',
+                }}
+              >
+                {/* Barre latérale colorée */}
+                <View style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0,
+                  width: 3, borderRadius: 3,
+                  backgroundColor: enCours ? C.green : C.accent,
+                }} />
+
+                <View style={{ paddingLeft: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.2 }}>
+                      {cours.matiere}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>
+                      {cours.classe}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Text style={{ fontSize: 11, color: C.textDim }}>🕐</Text>
+                        <Text style={{ fontSize: 11, color: C.textDim }}>
+                          {cours.heureDebut} – {cours.heureFin}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <Text style={{ fontSize: 11, color: C.textDim }}>📍</Text>
+                        <Text style={{ fontSize: 11, color: C.textDim }}>{cours.salle}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Badge statut */}
+                  <View style={{
+                    backgroundColor: enCours ? C.greenBg : C.accentBg,
+                    borderRadius: 8, borderWidth: 1,
+                    borderColor: enCours ? `${C.green}25` : `${C.accent}25`,
+                    paddingVertical: 4, paddingHorizontal: 10,
+                  }}>
+                    <Text style={{
+                      fontSize: 10, fontWeight: '700',
+                      color: enCours ? C.green : C.accentDim,
+                      textTransform: 'uppercase', letterSpacing: 0.8,
+                    }}>
+                      {enCours ? 'En cours' : 'À venir'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+
+          {/* ───── Mes classes ───── */}
+          <SectionTitle>Mes classes</SectionTitle>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {teacher.classes.map((cls) => (
+              <TouchableOpacity
+                key={cls.id}
+                activeOpacity={0.75}
+                style={{
+                  backgroundColor: C.surface,
+                  borderRadius: 12, borderWidth: 1, borderColor: C.border,
+                  paddingVertical: 10, paddingHorizontal: 16,
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: C.textSecondary }}>
+                  {cls.nom}
+                </Text>
+                <View style={{
+                  backgroundColor: C.purpleBg, borderRadius: 6,
+                  paddingVertical: 2, paddingHorizontal: 7,
+                }}>
+                  <Text style={{ fontSize: 10, color: C.purple, fontWeight: '700' }}>
+                    {cls.effectif}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+        </View>
+      </ScrollView>
+    </View>
   );
 };

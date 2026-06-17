@@ -1,14 +1,14 @@
 // screens/shared/ProfileScreen.tsx
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   Alert,
+  StatusBar,
+  Animated,
 } from 'react-native';
-import { MotiView } from 'moti';
-import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../hooks/useAuth';
@@ -28,6 +28,60 @@ export const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const { isDark, colors } = useTheme();
 
+  // ✅ Déclarer menuItems AVANT de l'utiliser
+  const menuItems: MenuItem[] = [
+    { icon: 'user', label: 'Informations personnelles', onPress: () => {}, color: '#60A5FA' },
+    { icon: 'bell', label: 'Notifications', onPress: () => {}, color: '#FBBF24' },
+    { icon: 'shield', label: 'Sécurité', onPress: () => {}, color: '#34D399' },
+    { icon: 'help-circle', label: 'Aide et support', onPress: () => {}, color: '#A78BFA' },
+    { icon: 'info', label: 'À propos', onPress: () => {}, color: '#6B7280' },
+  ];
+
+  // ✅ Maintenant menuItems est disponible
+  // Animation pour l'avatar et les infos
+  const avatarScale = useRef(new Animated.Value(0.9)).current;
+  const avatarOpacity = useRef(new Animated.Value(0)).current;
+
+  // Animations pour les éléments du menu
+  const menuAnimations = menuItems.map(() => ({
+    translateX: useRef(new Animated.Value(-20)).current,
+    opacity: useRef(new Animated.Value(0)).current,
+  }));
+
+  useEffect(() => {
+    // Animation de l'avatar
+    Animated.parallel([
+      Animated.spring(avatarScale, {
+        toValue: 1,
+        damping: 20,
+        useNativeDriver: true,
+      }),
+      Animated.timing(avatarOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Animations du menu (décalées)
+    menuAnimations.forEach((anim, index) => {
+      Animated.parallel([
+        Animated.spring(anim.translateX, {
+          toValue: 0,
+          damping: 20,
+          delay: 150 + index * 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim.opacity, {
+          toValue: 1,
+          duration: 300,
+          delay: 150 + index * 50,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  }, []);
+
   const handleLogout = () => {
     Alert.alert(
       'Déconnexion',
@@ -39,92 +93,221 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
-  const menuItems: MenuItem[] = [
-    { icon: 'user', label: 'Informations personnelles', onPress: () => {}, color: '#3B82F6' },
-    { icon: 'bell', label: 'Notifications', onPress: () => {}, color: '#F59E0B' },
-    { icon: 'shield', label: 'Sécurité', onPress: () => {}, color: '#10B981' },
-    { icon: 'help-circle', label: 'Aide et support', onPress: () => {}, color: '#8B5CF6' },
-    { icon: 'info', label: 'À propos', onPress: () => {}, color: '#6B7280' },
-  ];
+  // Couleurs dynamiques
+  const bgColor = isDark ? '#0E1117' : '#F9FAFB';
+  const textColor = isDark ? '#E8EAF0' : '#1A1A2E';
+  const textSecondary = isDark ? '#CDD0E0' : '#4A5568';
+  const textMuted = isDark ? '#4A5060' : '#9CA3AF';
+  const borderColor = isDark ? '#1C2030' : '#E5E7EB';
+  const surfaceColor = isDark ? '#12151E' : '#FFFFFF';
 
   return (
-    <ScrollView className="flex-1 bg-gray-50 dark:bg-gray-900" showsVerticalScrollIndicator={false}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+    <ScrollView 
+      style={{ flex: 1, backgroundColor: bgColor }}
+      showsVerticalScrollIndicator={false}
+    >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Header */}
+      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
       <LinearGradient
-        colors={['#F5A623', '#E0950A']}
+        colors={['#1E1B4B', '#312E81', '#4F46E5']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ paddingTop: 56, paddingBottom: 28, paddingHorizontal: 20 }}
+        style={{
+          paddingTop: 56,
+          paddingBottom: 28,
+          paddingHorizontal: 22,
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
+        }}
       >
-        <Text className="text-white text-xl font-bold text-center">Mon profil</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: 'rgba(255,255,255,0.5)',
+              letterSpacing: 1.5,
+              textTransform: 'uppercase',
+            }}>
+              Profil
+            </Text>
+            <Text style={{
+              fontSize: 24,
+              fontWeight: '700',
+              color: '#FFFFFF',
+              marginTop: 2,
+              letterSpacing: -0.5,
+            }}>
+              Mon compte
+            </Text>
+          </View>
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.12)',
+              borderRadius: 12,
+              padding: 10,
+            }}
+          >
+            <Feather name="edit-2" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
-      {/* Avatar et infos */}
-      <MotiView
-        from={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 100 }}
-        className="items-center -mt-8"
+      {/* ─── Avatar et infos ────────────────────────────────────────────────── */}
+      <Animated.View
+        style={{
+          alignItems: 'center',
+          marginTop: -24,
+          paddingHorizontal: 22,
+          transform: [{ scale: avatarScale }],
+          opacity: avatarOpacity,
+        }}
       >
-        <Avatar
-          source={user?.photo}
-          name={`${user?.nom} ${user?.prenoms}`}
-          size="xl"
-          variant="circle"
-        />
-        <Text className="text-xl font-bold text-gray-900 dark:text-white mt-3">
-          {user?.prenoms} {user?.nom}
-        </Text>
-        <Text className="text-sm text-gray-500 dark:text-gray-400">
-          {user?.role === 'PARENT' ? 'Parent d\'élève' :
-           user?.role === 'ELEVE' ? 'Élève' :
-           user?.role === 'PROFESSEUR' ? 'Enseignant' : 'Utilisateur'}
-        </Text>
-      </MotiView>
+        <View style={{
+          backgroundColor: surfaceColor,
+          borderRadius: 24,
+          borderWidth: 1,
+          borderColor: borderColor,
+          padding: 20,
+          width: '100%',
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 2,
+        }}>
+          <Avatar
+            source={user?.photo}
+            name={`${user?.nom} ${user?.prenoms}`}
+            size="xl"
+            variant="circle"
+            ring
+            ringColor="#6366F1"
+          />
+          <Text style={{
+            fontSize: 20,
+            fontWeight: '700',
+            color: textColor,
+            marginTop: 12,
+          }}>
+            {user?.prenoms} {user?.nom}
+          </Text>
+          <View style={{
+            backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.06)',
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 4,
+            marginTop: 4,
+          }}>
+            <Text style={{
+              fontSize: 12,
+              color: '#818CF8',
+              fontWeight: '500',
+            }}>
+              {user?.role === 'PARENT' ? 'Parent d\'élève' :
+               user?.role === 'ELEVE' ? 'Élève' :
+               user?.role === 'PROFESSEUR' ? 'Enseignant' : 'Utilisateur'}
+            </Text>
+          </View>
+          
+          {/* Email */}
+          {user?.email && (
+            <Text style={{
+              fontSize: 13,
+              color: textMuted,
+              marginTop: 8,
+            }}>
+              {user.email}
+            </Text>
+          )}
+        </View>
+      </Animated.View>
 
-      {/* Menu */}
-      <View className="px-5 mt-6">
-        {menuItems.map((item, index) => (
-          <MotiView
-            key={item.label}
-            from={{ opacity: 0, translateX: -20 }}
-            animate={{ opacity: 1, translateX: 0 }}
-            transition={{ delay: 150 + index * 50 }}
-          >
-            <TouchableOpacity
-              onPress={item.onPress}
-              className="flex-row items-center justify-between py-4 border-b border-gray-100 dark:border-gray-800"
+      {/* ─── Menu ───────────────────────────────────────────────────────────── */}
+      <View style={{ paddingHorizontal: 18, marginTop: 20 }}>
+        <Text style={{
+          fontSize: 11,
+          fontWeight: '700',
+          color: textMuted,
+          textTransform: 'uppercase',
+          letterSpacing: 1.2,
+          marginBottom: 12,
+        }}>
+          Paramètres
+        </Text>
+
+        {menuItems.map((item, index) => {
+          const anim = menuAnimations[index];
+          return (
+            <Animated.View
+              key={item.label}
+              style={{
+                transform: [{ translateX: anim.translateX }],
+                opacity: anim.opacity,
+              }}
             >
-              <View className="flex-row items-center gap-3">
-                <View
-                  className="w-10 h-10 rounded-full items-center justify-center"
-                  style={{ backgroundColor: `${item.color}20` }}
-                >
-                  <Feather name={item.icon} size={18} color={item.color} />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={item.onPress}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 14,
+                  paddingHorizontal: 4,
+                  borderBottomWidth: 1,
+                  borderBottomColor: borderColor,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      backgroundColor: item.color + '20',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Feather name={item.icon} size={18} color={item.color} />
+                  </View>
+                  <Text style={{
+                    fontSize: 15,
+                    color: textColor,
+                    fontWeight: '500',
+                  }}>
+                    {item.label}
+                  </Text>
                 </View>
-                <Text className="text-base text-gray-900 dark:text-white">
-                  {item.label}
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={18} color="#9CA3AF" />
-            </TouchableOpacity>
-          </MotiView>
-        ))}
+                <Feather name="chevron-right" size={18} color={textMuted} />
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })}
       </View>
 
-      {/* Version et déconnexion */}
-      <View className="px-5 mt-8 mb-10">
-        <Text className="text-center text-gray-400 dark:text-gray-600 text-xs mb-6">
+      {/* ─── Version et déconnexion ────────────────────────────────────────── */}
+      <View style={{ paddingHorizontal: 18, marginTop: 24, marginBottom: 40 }}>
+        <Text style={{
+          textAlign: 'center',
+          fontSize: 12,
+          color: textMuted,
+          marginBottom: 20,
+        }}>
           Version 1.0.0
         </Text>
-        <Button
-          title="Se déconnecter"
-          onPress={handleLogout}
-          variant="danger"
-          size="md"
-        />
+        <View style={{ marginTop: 8 }}>
+          <Button
+            title="Se déconnecter"
+            onPress={handleLogout}
+            variant="danger"
+            size="md"
+          />
+        </View>
       </View>
     </ScrollView>
   );

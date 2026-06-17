@@ -1,199 +1,408 @@
-// screens/parent/ParentHomeScreen.tsx
-import React, { useState, useEffect } from 'react';
+// screens/parent/ParentHomeScreen.tsx (ou HomeScreen.tsx)
+import React from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
-import { MotiView } from 'moti';
-import { StatusBar } from 'expo-status-bar';
-import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../hooks/useTheme';
-import { Card } from '../../components/ui/Card';
-import { Avatar } from '../../components/ui/Avatar';
-import { Badge } from '../../components/ui/Badge';
+import { useAppStore } from '../../store'; // ✅ Changement ici
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { ChildSelector, Child } from '../../components/zenith/ChildSelector';
-import { cn } from '../../utils/cn';
 
-// Mock data
-const MOCK_CHILDREN: Child[] = [
-  {
-    id: '1',
-    nom: 'MOUKOKO',
-    prenoms: 'Jean Junior',
-    classe: '3ème A',
-    schoolId: '1',
-    schoolName: 'Lycée Moderne',
-    moyenne: 15.5,
-  },
-  {
-    id: '2',
-    nom: 'MOUKOKO',
-    prenoms: 'Marie Claire',
-    classe: '5ème B',
-    schoolId: '2',
-    schoolName: 'Collège Saint Joseph',
-    moyenne: 17.2,
-  },
-];
+const COLORS = {
+  bg: '#0E1117',
+  surface: '#12151E',
+  border: '#1C2030',
+  borderSub: '#141720',
+  accent: '#6366F1',
+  accentDim: '#818CF8',
+  accentBg: 'rgba(99,102,241,0.10)',
+  green: '#34D399',
+  greenBg: 'rgba(16,185,129,0.09)',
+  red: '#EF4444',
+  textPrimary: '#DDE0ED',
+  textSecondary: '#C0C4D8',
+  textMuted: '#4A5060',
+  textDim: '#3E4458',
+};
+
+interface DashboardStats {
+  notificationsNonLues: number;
+  prochainsCours: any[];
+  dernieresNotes: any[];
+  evenementsRecents: any[];
+}
+
+const MOCK_STATS: DashboardStats = {
+  notificationsNonLues: 3,
+  prochainsCours: [
+    {
+      id: '1',
+      matiere: 'Mathématiques',
+      professeur: 'M. NGOMA',
+      salle: 'A101',
+      heureDebut: '08:00',
+    },
+  ],
+  dernieresNotes: [
+    { id: '1', matiere: 'Mathématiques', note: 15, date: '15 oct. 2025' },
+    { id: '2', matiere: 'Français', note: 14, date: '14 oct. 2025' },
+    { id: '3', matiere: 'Physique-Chimie', note: 17, date: '12 oct. 2025' },
+  ],
+  evenementsRecents: [
+    {
+      id: '1',
+      titre: 'Réunion parents-professeurs',
+      date: '25 oct. 2025',
+      lieu: 'Salle polyvalente',
+      color: COLORS.accent,
+    },
+    {
+      id: '2',
+      titre: 'Examens de mi-trimestre',
+      date: '3 nov. 2025',
+      lieu: 'Toutes les salles',
+      color: COLORS.green,
+    },
+  ],
+};
+
+const GradeBubble = ({ note }: { note: number }) => {
+  const isGood = note >= 15;
+  const isMedium = note >= 10 && note < 15;
+  const bg = isGood ? COLORS.greenBg : isMedium ? COLORS.accentBg : 'rgba(239,68,68,0.10)';
+  const color = isGood ? COLORS.green : isMedium ? COLORS.accentDim : COLORS.red;
+  return (
+    <View style={{
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <Text style={{ color, fontSize: 14, fontWeight: '700' }}>{note}</Text>
+    </View>
+  );
+};
 
 export const ParentHomeScreen: React.FC = () => {
-  const { user } = useAuth();
-  const { isDark, colors } = useTheme();
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
-  const [notificationsCount] = useState(3);
+  const { user } = useAppStore(); // ✅ Changement ici
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [stats] = React.useState(MOCK_STATS);
 
-  useEffect(() => {
-    if (MOCK_CHILDREN.length > 0 && !selectedChild) {
-      setSelectedChild(MOCK_CHILDREN[0]);
-    }
-  }, []);
-
-  const onRefresh = () => {
+  const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
-  };
+  }, []);
 
   if (!user) return <LoadingSpinner fullScreen />;
 
+  const initials = `${user.prenoms?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase();
+
   return (
-    <ScrollView
-      className="flex-1 bg-gray-50 dark:bg-gray-900"
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
-      {/* Header avec dégradé */}
-      <LinearGradient
-        colors={['#F5A623', '#E0950A']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: 48, paddingBottom: 28, paddingHorizontal: 20 }}
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.accent}
+          />
+        }
       >
-        <View className="flex-row justify-between items-center">
-          <View>
-            <Text className="text-white/80 text-sm">Bonjour,</Text>
-            <Text className="text-white text-2xl font-bold mt-1">
-              {user.prenoms} {user.nom}
+        {/* ───── Header ───── */}
+        <View style={{
+          backgroundColor: '#12151E',
+          paddingTop: 56,
+          paddingBottom: 36,
+          paddingHorizontal: 22,
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          <View style={{
+            position: 'absolute',
+            top: -60,
+            right: -60,
+            width: 220,
+            height: 220,
+            backgroundColor: 'rgba(99,102,241,0.06)',
+            borderRadius: 110,
+          }} />
+
+          {/* Top bar */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '700',
+              letterSpacing: 2.5,
+              color: COLORS.accent,
+              textTransform: 'uppercase',
+            }}>
+              ✦ SURYA
             </Text>
-          </View>
-          <TouchableOpacity className="relative p-2">
-            <Feather name="bell" size={22} color="white" />
-            {notificationsCount > 0 && (
-              <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 items-center justify-center">
-                <Text className="text-white text-xs font-bold">
-                  {notificationsCount > 9 ? '9+' : notificationsCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      {/* Contenu */}
-      <View className="px-5 -mt-5">
-        {/* Sélecteur d'enfant */}
-        {MOCK_CHILDREN.length > 1 && (
-          <MotiView
-            from={{ opacity: 0, translateY: -20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ delay: 100 }}
-            className="mb-5"
-          >
-            <ChildSelector
-              children={MOCK_CHILDREN}
-              selectedChild={selectedChild}
-              onSelectChild={setSelectedChild}
-            />
-          </MotiView>
-        )}
-
-        {/* Cartes stats */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 150 }}
-          className="flex-row gap-4 mb-6"
-        >
-          <Card variant="elevated" className="flex-1 items-center py-4">
-            <Feather name="trending-up" size={24} color="#10B981" />
-            <Text className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-              {selectedChild?.moyenne?.toFixed(1) || '-'}
-            </Text>
-            <Text className="text-xs text-gray-500 dark:text-gray-400">Moyenne générale</Text>
-          </Card>
-          <Card variant="elevated" className="flex-1 items-center py-4">
-            <Feather name="credit-card" size={24} color="#F5A623" />
-            <Text className="text-2xl font-bold text-gray-900 dark:text-white mt-2">2</Text>
-            <Text className="text-xs text-gray-500 dark:text-gray-400">Paiements en attente</Text>
-          </Card>
-        </MotiView>
-
-        {/* Accès rapide */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 200 }}
-          className="mb-6"
-        >
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-            Accès rapide
-          </Text>
-          <View className="flex-row flex-wrap gap-3">
-            {[
-              { label: 'Emploi du temps', icon: 'calendar', color: '#3B82F6', route: 'ParentTimetable' },
-              { label: 'Notes', icon: 'book-open', color: '#10B981', route: 'ParentGrades' },
-              { label: 'Paiements', icon: 'credit-card', color: '#F5A623', route: 'ParentPayments' },
-              { label: 'Clubs', icon: 'users', color: '#8B5CF6', route: 'ParentClubs' },
-              { label: 'Réclamation', icon: 'message-square', color: '#EF4444', route: 'ParentComplaint' },
-            ].map((item) => (
-              <TouchableOpacity
-                key={item.label}
-                className="w-[30%] bg-white dark:bg-gray-800 rounded-xl p-3 items-center shadow-sm"
-              >
-                <View
-                  className="w-10 h-10 rounded-full items-center justify-center mb-2"
-                  style={{ backgroundColor: `${item.color}20` }}
-                >
-                  <Feather name={item.icon as any} size={20} color={item.color} />
-                </View>
-                <Text className="text-xs text-gray-700 dark:text-gray-300 text-center">
-                  {item.label}
-                </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity style={{
+                width: 40,
+                height: 40,
+                backgroundColor: '#161A24',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Text style={{ fontSize: 16, color: '#8088A8' }}>🔔</Text>
+                {stats.notificationsNonLues > 0 && (
+                  <View style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 9,
+                    width: 8,
+                    height: 8,
+                    backgroundColor: COLORS.red,
+                    borderRadius: 4,
+                    borderWidth: 2,
+                    borderColor: '#161A24',
+                  }} />
+                )}
               </TouchableOpacity>
-            ))}
-          </View>
-        </MotiView>
 
-        {/* Événements récents */}
-        <MotiView
-          from={{ opacity: 0, translateX: -20 }}
-          animate={{ opacity: 1, translateX: 0 }}
-          transition={{ delay: 250 }}
-          className="mb-8"
-        >
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-            Événements à venir
+              <LinearGradient
+                colors={['#3730A3', '#6366F1']}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#C7D2FE' }}>
+                  {initials}
+                </Text>
+              </LinearGradient>
+            </View>
+          </View>
+
+          <Text style={{ fontSize: 12, color: COLORS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600' }}>
+            Bonjour,
           </Text>
-          <Card variant="elevated" className="flex-row items-center p-4">
-            <View className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/30 items-center justify-center mr-3">
-              <Feather name="calendar" size={18} color="#F5A623" />
+          <Text style={{ fontSize: 22, fontWeight: '700', color: '#E8EAF0', marginTop: 3, letterSpacing: -0.3 }}>
+            {user.prenoms} {user.nom}
+          </Text>
+        </View>
+
+        <View style={{ paddingHorizontal: 16, paddingBottom: 32 }}>
+
+          {/* ───── Prochain cours ───── */}
+          {stats.prochainsCours.length > 0 && (
+            <View style={{
+              backgroundColor: COLORS.surface,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              padding: 16,
+              marginTop: -16,
+              marginBottom: 12,
+            }}>
+              <Text style={{ fontSize: 10, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: '600', marginBottom: 10 }}>
+                Prochain cours
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.2 }}>
+                    {stats.prochainsCours[0].matiere}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>
+                    {stats.prochainsCours[0].professeur} · Salle {stats.prochainsCours[0].salle}
+                  </Text>
+                </View>
+                <View style={{
+                  backgroundColor: '#1A1D2E',
+                  borderWidth: 1,
+                  borderColor: '#252A40',
+                  borderRadius: 10,
+                  paddingVertical: 7,
+                  paddingHorizontal: 12,
+                }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.accentDim }}>
+                    {stats.prochainsCours[0].heureDebut}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View className="flex-1">
-              <Text className="font-semibold text-gray-900 dark:text-white">Réunion parents-professeurs</Text>
-              <Text className="text-xs text-gray-500 dark:text-gray-400">25 Oct 2025 • Salle polyvalente</Text>
+          )}
+
+          {/* ───── Stats rapides ───── */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+            <View style={{
+              flex: 1,
+              backgroundColor: COLORS.surface,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              padding: 16,
+              alignItems: 'center',
+            }}>
+              <View style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: COLORS.greenBg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 8,
+              }}>
+                <Text style={{ fontSize: 16 }}>📈</Text>
+              </View>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.5 }}>
+                15
+                <Text style={{ fontSize: 14, color: COLORS.textMuted, fontWeight: '400' }}>/20</Text>
+              </Text>
+              <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: '500' }}>
+                Moyenne
+              </Text>
             </View>
-            <Feather name="chevron-right" size={16} color="#9CA3AF" />
-          </Card>
-        </MotiView>
-      </View>
-    </ScrollView>
+
+            <View style={{
+              flex: 1,
+              backgroundColor: COLORS.surface,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              padding: 16,
+              alignItems: 'center',
+            }}>
+              <View style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                backgroundColor: COLORS.accentBg,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 8,
+              }}>
+                <Text style={{ fontSize: 16 }}>✅</Text>
+              </View>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.5 }}>
+                92
+                <Text style={{ fontSize: 14, color: COLORS.textMuted, fontWeight: '400' }}>%</Text>
+              </Text>
+              <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: '500' }}>
+                Présence
+              </Text>
+            </View>
+          </View>
+
+          {/* ───── Dernières notes ───── */}
+          {stats.dernieresNotes.length > 0 && (
+            <View style={{ marginBottom: 4 }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '700',
+                color: '#7880A0',
+                textTransform: 'uppercase',
+                letterSpacing: 1.2,
+                marginTop: 18,
+                marginBottom: 10,
+              }}>
+                Dernières notes
+              </Text>
+              {stats.dernieresNotes.map((note) => (
+                <View
+                  key={note.id}
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 13,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    padding: 13,
+                    paddingHorizontal: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 8,
+                  }}
+                >
+                  <View>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#CDD0E0' }}>
+                      {note.matiere}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#3E4458', marginTop: 2 }}>
+                      {note.date}
+                    </Text>
+                  </View>
+                  <GradeBubble note={note.note} />
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ───── Événements ───── */}
+          {stats.evenementsRecents.length > 0 && (
+            <View style={{ marginBottom: 8 }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '700',
+                color: '#7880A0',
+                textTransform: 'uppercase',
+                letterSpacing: 1.2,
+                marginTop: 18,
+                marginBottom: 10,
+              }}>
+                Événements à venir
+              </Text>
+              {stats.evenementsRecents.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  activeOpacity={0.7}
+                  style={{
+                    backgroundColor: COLORS.surface,
+                    borderRadius: 13,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    padding: 13,
+                    paddingHorizontal: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                    gap: 12,
+                  }}
+                >
+                  <View style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: `${event.color}18`,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Text style={{ fontSize: 15, color: event.color }}>📅</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#C0C4D8' }}>
+                      {event.titre}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: '#3E4458', marginTop: 2 }}>
+                      {event.date} · {event.lieu}
+                    </Text>
+                  </View>
+                  <Text style={{ color: '#2A2E42', fontSize: 18 }}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+        </View>
+      </ScrollView>
+    </View>
   );
 };

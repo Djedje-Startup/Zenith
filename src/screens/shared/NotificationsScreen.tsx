@@ -6,14 +6,13 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { MotiView } from 'moti';
-import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
 import { EmptyState } from '../../components/animations/EmptyState';
-import { cn } from '../../utils/cn';
 
 interface Notification {
   id: string;
@@ -42,10 +41,10 @@ const getTypeIcon = (type: string): keyof typeof Feather.glyphMap => {
 
 const getTypeColor = (type: string): string => {
   switch (type) {
-    case 'success': return '#10B981';
-    case 'warning': return '#F59E0B';
+    case 'success': return '#34D399';
+    case 'warning': return '#FBBF24';
     case 'error': return '#EF4444';
-    default: return '#3B82F6';
+    default: return '#60A5FA';
   }
 };
 
@@ -67,76 +66,181 @@ export const NotificationsScreen: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  return (
-    <View className="flex-1 bg-gray-50 dark:bg-gray-900">
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+  // Couleurs dynamiques
+  const bgColor = isDark ? '#0E1117' : '#F9FAFB';
+  const textColor = isDark ? '#E8EAF0' : '#1A1A2E';
+  const textSecondary = isDark ? '#CDD0E0' : '#4A5568';
+  const textMuted = isDark ? '#4A5060' : '#9CA3AF';
+  const borderColor = isDark ? '#1C2030' : '#E5E7EB';
 
-      {/* Header */}
+  return (
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
       <LinearGradient
-        colors={['#F5A623', '#E0950A']}
+        colors={['#1E1B4B', '#312E81', '#4F46E5']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ paddingTop: 56, paddingBottom: 20, paddingHorizontal: 20 }}
+        style={{
+          paddingTop: 56,
+          paddingBottom: 24,
+          paddingHorizontal: 22,
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
+        }}
       >
-        <Text className="text-white text-xl font-bold">Notifications</Text>
-        {unreadCount > 0 && (
-          <Text className="text-white/80 text-sm mt-1">
-            {unreadCount} notification(s) non lue(s)
-          </Text>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: 'rgba(255,255,255,0.5)',
+              letterSpacing: 1.5,
+              textTransform: 'uppercase',
+            }}>
+              Notifications
+            </Text>
+            <Text style={{
+              fontSize: 24,
+              fontWeight: '700',
+              color: '#FFFFFF',
+              marginTop: 2,
+              letterSpacing: -0.5,
+            }}>
+              Mes notifications
+            </Text>
+          </View>
+          <View style={{
+            backgroundColor: 'rgba(255,255,255,0.12)',
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            alignItems: 'center',
+          }}>
+            <Text style={{
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.6)',
+              fontWeight: '500',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}>
+              Non lues
+            </Text>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: '#FFFFFF',
+            }}>
+              {unreadCount}
+            </Text>
+          </View>
+        </View>
       </LinearGradient>
 
-      {/* Liste des notifications */}
+      {/* ─── Liste des notifications ────────────────────────────────────────── */}
       <FlatList
         data={notifications}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={isDark ? '#818CF8' : '#6366F1'} 
+          />
+        }
+        contentContainerStyle={{
+          paddingTop: 16,
+          paddingBottom: 40,
+        }}
         renderItem={({ item, index }) => {
           const icon = getTypeIcon(item.type);
           const color = getTypeColor(item.type);
+          const isUnread = !item.isRead;
+
           return (
             <MotiView
               from={{ opacity: 0, translateX: -20 }}
               animate={{ opacity: 1, translateX: 0 }}
               transition={{ delay: index * 50 }}
+              style={{ paddingHorizontal: 18 }}
             >
               <TouchableOpacity
+                activeOpacity={0.7}
                 onPress={() => markAsRead(item.id)}
-                className={cn(
-                  'flex-row p-4 border-b border-gray-100 dark:border-gray-800',
-                  !item.isRead && 'bg-primary-50 dark:bg-primary-900/10'
-                )}
+                style={{
+                  flexDirection: 'row',
+                  padding: 16,
+                  marginBottom: 8,
+                  borderRadius: 14,
+                  backgroundColor: isUnread 
+                    ? isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.05)'
+                    : 'transparent',
+                  borderWidth: 1,
+                  borderColor: isUnread 
+                    ? isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.10)'
+                    : borderColor,
+                }}
               >
                 <View
-                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                  style={{ backgroundColor: `${color}20` }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: color + '20',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}
                 >
                   <Feather name={icon} size={18} color={color} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-sm font-semibold text-gray-900 dark:text-white">
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: isUnread ? '700' : '500',
+                    color: isUnread ? textColor : textMuted,
+                  }}>
                     {item.titre}
                   </Text>
-                  <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <Text style={{
+                    fontSize: 12,
+                    color: isUnread ? textSecondary : textMuted,
+                    marginTop: 2,
+                  }}>
                     {item.message}
                   </Text>
-                  <Text className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                  <Text style={{
+                    fontSize: 11,
+                    color: textMuted,
+                    marginTop: 6,
+                  }}>
                     {item.date}
                   </Text>
                 </View>
-                {!item.isRead && (
-                  <View className="w-2 h-2 rounded-full self-center" style={{ backgroundColor: '#F5A623' }} />
+                {isUnread && (
+                  <View style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: color,
+                    alignSelf: 'center',
+                    marginLeft: 8,
+                  }} />
                 )}
               </TouchableOpacity>
             </MotiView>
           );
         }}
         ListEmptyComponent={
-          <EmptyState
-            title="Aucune notification"
-            description="Vous n'avez pas encore de notifications"
-            icon="bell-off"
-          />
+          <View style={{ marginTop: 40 }}>
+            <EmptyState
+              title="Aucune notification"
+              description="Vous n'avez pas encore de notifications"
+              icon="bell"
+              variant="default"
+            />
+          </View>
         }
       />
     </View>
