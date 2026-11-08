@@ -14,30 +14,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useTheme } from '../../theme'; // ✅ Thème centralisé
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderFocus: '#6366F1',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  accentBgFocus: 'rgba(99,102,241,0.07)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.08)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface School {
   id: string;
   nom: string;
@@ -46,15 +27,20 @@ interface School {
   statut: 'ACTIF' | 'INACTIF';
 }
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_SCHOOLS: School[] = [
   { id: '1', nom: 'Lycée Moderne de Brazzaville', ville: 'Brazzaville', statut: 'ACTIF' },
   { id: '2', nom: 'Collège Saint Joseph', ville: 'Pointe-Noire', statut: 'ACTIF' },
   { id: '3', nom: 'École Internationale de Brazzaville', ville: 'Brazzaville', statut: 'INACTIF' },
 ];
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// SCREEN PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const SelectSchoolScreen: React.FC = () => {
+  const { colors } = useTheme();
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
@@ -99,7 +85,6 @@ export const SelectSchoolScreen: React.FC = () => {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
     setIsLoading(false);
-    // Navigation vers l'écran suivant
     navigation.navigate('Main');
   };
 
@@ -128,10 +113,20 @@ export const SelectSchoolScreen: React.FC = () => {
     });
   }, []);
 
+  // ─── Rendu d'une carte d'école ───
   const renderSchoolCard = ({ item, index }: { item: School; index: number }) => {
     const isSelected = selectedSchoolId === item.id;
     const isInactive = item.statut === 'INACTIF';
     const anim = cardAnimations[index] || cardAnimations[0];
+
+    // Initiales de l'école
+    const getInitials = (name: string) => {
+      const words = name.split(' ');
+      if (words.length >= 2) {
+        return `${words[0][0]}${words[1][0]}`.toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    };
 
     return (
       <Animated.View
@@ -151,8 +146,8 @@ export const SelectSchoolScreen: React.FC = () => {
             padding: 16,
             borderRadius: 18,
             borderWidth: 2,
-            backgroundColor: isSelected ? C.accentBg : C.surface,
-            borderColor: isSelected ? C.accent : isInactive ? C.border : C.border,
+            backgroundColor: isSelected ? colors.primaryBg : colors.surface,
+            borderColor: isSelected ? colors.primary : isInactive ? colors.border : colors.border,
             opacity: isInactive ? 0.5 : 1,
           }}
         >
@@ -161,7 +156,7 @@ export const SelectSchoolScreen: React.FC = () => {
             <Image source={{ uri: item.logo }} style={{ width: 48, height: 48, borderRadius: 24 }} />
           ) : (
             <LinearGradient
-              colors={['#4F46E5', '#6366F1']}
+              colors={[colors.primary, colors.secondary]}
               style={{
                 width: 48,
                 height: 48,
@@ -171,7 +166,7 @@ export const SelectSchoolScreen: React.FC = () => {
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF' }}>
-                {item.nom.charAt(0)}
+                {getInitials(item.nom)}
               </Text>
             </LinearGradient>
           )}
@@ -181,15 +176,15 @@ export const SelectSchoolScreen: React.FC = () => {
             <Text style={{
               fontSize: 15,
               fontWeight: '600',
-              color: isInactive ? C.textMuted : C.textPrimary,
+              color: isInactive ? colors.textMuted : colors.text,
             }}>
               {item.nom}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-              <Feather name="map-pin" size={12} color={C.textMuted} />
+              <Feather name="map-pin" size={12} color={colors.textMuted} />
               <Text style={{
                 fontSize: 12,
-                color: C.textMuted,
+                color: colors.textMuted,
                 marginLeft: 4,
               }}>
                 {item.ville}
@@ -200,12 +195,12 @@ export const SelectSchoolScreen: React.FC = () => {
                     width: 3,
                     height: 3,
                     borderRadius: 1.5,
-                    backgroundColor: C.textMuted,
+                    backgroundColor: colors.textMuted,
                     marginHorizontal: 6,
                   }} />
                   <Text style={{
                     fontSize: 10,
-                    color: C.textMuted,
+                    color: colors.textMuted,
                     fontWeight: '600',
                     textTransform: 'uppercase',
                     letterSpacing: 0.3,
@@ -223,7 +218,7 @@ export const SelectSchoolScreen: React.FC = () => {
               width: 28,
               height: 28,
               borderRadius: 14,
-              backgroundColor: C.accent,
+              backgroundColor: colors.primary,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
@@ -236,7 +231,7 @@ export const SelectSchoolScreen: React.FC = () => {
                 height: 28,
                 borderRadius: 14,
                 borderWidth: 2,
-                borderColor: C.border,
+                borderColor: colors.border,
               }} />
             )
           )}
@@ -249,13 +244,14 @@ export const SelectSchoolScreen: React.FC = () => {
     return <LoadingSpinner fullScreen text="Connexion en cours..." />;
   }
 
+  // ─── RENDU ───
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* ───── Header ───── */}
+      {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
       <LinearGradient
-        colors={['#1E1B4B', '#312E81', '#4F46E5']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -266,12 +262,16 @@ export const SelectSchoolScreen: React.FC = () => {
           borderBottomRightRadius: 28,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
           <View>
             <Text style={{
               fontSize: 12,
               fontWeight: '700',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
@@ -288,7 +288,7 @@ export const SelectSchoolScreen: React.FC = () => {
             </Text>
           </View>
           <View style={{
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.2)',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -316,14 +316,14 @@ export const SelectSchoolScreen: React.FC = () => {
         {/* Message de bienvenue */}
         <Text style={{
           fontSize: 13,
-          color: 'rgba(255,255,255,0.6)',
+          color: 'rgba(255,255,255,0.7)',
           marginTop: 12,
         }}>
           Bonjour {user?.prenoms || 'Utilisateur'} {user?.nom || ''}
         </Text>
       </LinearGradient>
 
-      {/* ─── Liste des écoles ──────────────────────────────────────────────── */}
+      {/* ─── LISTE DES ÉCOLES ─── */}
       <FlatList
         data={MOCK_SCHOOLS}
         keyExtractor={(item) => item.id}
@@ -334,7 +334,7 @@ export const SelectSchoolScreen: React.FC = () => {
           <Text style={{
             fontSize: 11,
             fontWeight: '700',
-            color: C.textMuted,
+            color: colors.textMuted,
             textTransform: 'uppercase',
             letterSpacing: 1.2,
             marginBottom: 14,
@@ -344,7 +344,7 @@ export const SelectSchoolScreen: React.FC = () => {
         }
       />
 
-      {/* ───── Bouton de validation ────────────────────────────────────────── */}
+      {/* ─── BOUTON DE VALIDATION ─── */}
       {selectedSchoolId && (
         <Animated.View
           style={{
@@ -364,15 +364,15 @@ export const SelectSchoolScreen: React.FC = () => {
             activeOpacity={0.8}
             onPress={handleSelectSchool}
             style={{
-              backgroundColor: C.accent,
+              backgroundColor: colors.primary,
               borderRadius: 16,
               height: 56,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: C.accent,
+              shadowColor: colors.primary,
               shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
+              shadowOpacity: 0.25,
               shadowRadius: 20,
               elevation: 8,
             }}

@@ -1,5 +1,5 @@
 // screens/parent/ParentGradesScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,44 +8,23 @@ import {
   RefreshControl,
   StatusBar,
   Animated,
+  StyleSheet,
+  Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../hooks/useAuth';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { EmptyState } from '../../components/animations/EmptyState';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { StudentClubDetailScreen } from '../eleve/StudentClubDetailScreen';
+import { useTheme } from '../../theme';
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#7C3AED';
+const GRADIENT_BRAND: [string, string] = [BRAND_ORANGE, BRAND_VIOLET];
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+type FeatherIconName = keyof typeof Feather.glyphMap;
+
+// ─── TYPES ────────────────────────────────────────────────────────────────
 interface Grade {
   id: string;
   matiere: string;
@@ -59,763 +38,419 @@ interface Grade {
 interface ReportCard {
   id: string;
   periode: string;
+  periodeCourte: string;
   moyenneGenerale: number;
   mention: string;
   matieres: Grade[];
 }
 
-// ─── Mock data ──────────────────────────────────────────────────────────────
+// ─── MOCK (à remplacer par les hooks React Query réels) ───────────────────
 const MOCK_REPORT_CARDS: ReportCard[] = [
   {
     id: '1',
-    periode: '1er Trimestre 2025-2026',
+    periode: '1er Trimestre — 2025-2026',
+    periodeCourte: 'Trim. 1',
     moyenneGenerale: 15.5,
     mention: 'BIEN',
     matieres: [
-      { id: '1', matiere: 'Mathématiques', moyenne: 14.5, coefficient: 4, appreciation: 'Bon travail', rang: 4, effectif: 32 },
-      { id: '2', matiere: 'Français', moyenne: 16.2, coefficient: 4, appreciation: 'Excellent', rang: 2, effectif: 32 },
+      { id: '1', matiere: 'Mathématiques', moyenne: 14.5, coefficient: 4, appreciation: 'Bon travail, reste concentré', rang: 4, effectif: 32 },
+      { id: '2', matiere: 'Français', moyenne: 16.2, coefficient: 4, appreciation: 'Excellent trimestre', rang: 2, effectif: 32 },
       { id: '3', matiere: 'Anglais', moyenne: 14.8, coefficient: 3, appreciation: 'Bonne progression', rang: 5, effectif: 32 },
     ],
   },
   {
     id: '2',
-    periode: '2ème Trimestre 2025-2026',
+    periode: '2e Trimestre — 2025-2026',
+    periodeCourte: 'Trim. 2',
     moyenneGenerale: 16.2,
     mention: 'TRES_BIEN',
     matieres: [
-      { id: '6', matiere: 'Mathématiques', moyenne: 15.5, coefficient: 4, appreciation: 'Progression', rang: 3, effectif: 32 },
+      { id: '6', matiere: 'Mathématiques', moyenne: 15.5, coefficient: 4, appreciation: 'Belle progression', rang: 3, effectif: 32 },
       { id: '7', matiere: 'Français', moyenne: 17.0, coefficient: 4, appreciation: 'Excellent', rang: 1, effectif: 32 },
     ],
   },
   {
     id: '3',
-    periode: '3ème Trimestre 2025-2026',
+    periode: '3e Trimestre — 2025-2026',
+    periodeCourte: 'Trim. 3',
     moyenneGenerale: 17.8,
     mention: 'EXCELLENT',
     matieres: [
-      { id: '9', matiere: 'Mathématiques', moyenne: 18.0, coefficient: 4, appreciation: 'Excellent', rang: 1, effectif: 32 },
-      { id: '10', matiere: 'Français', moyenne: 17.5, coefficient: 4, appreciation: 'Très bon', rang: 1, effectif: 32 },
+      { id: '9', matiere: 'Mathématiques', moyenne: 18.0, coefficient: 4, appreciation: 'Excellent, félicitations', rang: 1, effectif: 32 },
+      { id: '10', matiere: 'Français', moyenne: 17.5, coefficient: 4, appreciation: 'Très bon niveau', rang: 1, effectif: 32 },
     ],
   },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-const getMentionConfig = (mention: string) => {
+const CATEGORY_TABS: { key: CategoryKey; label: string; icon: FeatherIconName }[] = [
+  { key: 'notes', label: 'Notes', icon: 'book-open' },
+  { key: 'timetable', label: 'Emploi', icon: 'calendar' },
+  { key: 'attendance', label: 'Présences', icon: 'check-square' },
+  { key: 'courses', label: 'Cours', icon: 'book' },
+  { key: 'clubs', label: 'Clubs', icon: 'users' },
+  { key: 'teachers', label: 'Professeurs', icon: 'user' },
+];
+
+type CategoryKey = 'notes' | 'timetable' | 'attendance' | 'courses' | 'clubs' | 'teachers';
+
+// ─── HELPERS COULEUR ────────────────────────────────────────────────────
+const getMentionConfig = (mention: string, colors: any) => {
   switch (mention) {
-    case 'EXCELLENT':
-      return { label: 'Excellent', color: C.green, bg: C.greenBg, icon: 'award' as const };
-    case 'TRES_BIEN':
-      return { label: 'Très bien', color: C.blue, bg: C.blueBg, icon: 'award' as const };
-    case 'BIEN':
-      return { label: 'Bien', color: C.accent, bg: C.accentBg, icon: 'star' as const };
-    case 'ASSEZ_BIEN':
-      return { label: 'Assez bien', color: C.amber, bg: C.amberBg, icon: 'trending-up' as const };
-    default:
-      return { label: 'Insuffisant', color: C.red, bg: C.redBg, icon: 'alert-circle' as const };
+    case 'EXCELLENT': return { label: 'Excellent', color: colors.success };
+    case 'TRES_BIEN': return { label: 'Très bien', color: colors.info };
+    case 'BIEN': return { label: 'Bien', color: BRAND_VIOLET };
+    case 'ASSEZ_BIEN': return { label: 'Assez bien', color: colors.warning };
+    default: return { label: 'Insuffisant', color: colors.error };
   }
 };
 
-const getGradeColor = (note: number) => {
-  if (note >= 16) return C.green;
-  if (note >= 14) return C.blue;
-  if (note >= 12) return C.accent;
-  if (note >= 10) return C.amber;
-  return C.red;
+const getGradeColor = (note: number, colors: any) => {
+  if (note >= 16) return colors.success;
+  if (note >= 14) return colors.info;
+  if (note >= 12) return BRAND_VIOLET;
+  if (note >= 10) return colors.warning;
+  return colors.error;
 };
 
-const getGradeLevel = (note: number) => {
-  if (note >= 16) return 'Excellent';
-  if (note >= 14) return 'Très bien';
-  if (note >= 12) return 'Bien';
-  if (note >= 10) return 'Passable';
-  return 'Insuffisant';
-};
-
-// ─── Grade Circle ──────────────────────────────────────────────────────────
-const GradeCircle = ({ note, size = 'md' }: { note: number; size?: 'sm' | 'md' | 'lg' }) => {
-  const sizes = {
-    sm: { container: 36, fontSize: 13 },
-    md: { container: 48, fontSize: 17 },
-    lg: { container: 60, fontSize: 22 },
-  };
-
-  const color = getGradeColor(note);
-  const sizeConfig = sizes[size];
-
-  const scale = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        damping: 20,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  return (
-    <Animated.View
-      style={{
-        width: sizeConfig.container,
-        height: sizeConfig.container,
-        borderRadius: sizeConfig.container / 2,
-        backgroundColor: color + '12',
-        borderWidth: 2,
-        borderColor: color + '30',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: [{ scale }],
-        opacity: opacity,
-      }}
-    >
-      <Text
-        style={{
-          fontWeight: '700',
-          fontSize: sizeConfig.fontSize,
-          color: color,
-        }}
-      >
-        {note.toFixed(1)}
-      </Text>
-    </Animated.View>
-  );
-};
-
-// ─── Grade Item ────────────────────────────────────────────────────────────
-const GradeItem = ({ grade, index }: { grade: Grade; index: number }) => {
-  const color = getGradeColor(grade.moyenne);
-  const level = getGradeLevel(grade.moyenne);
-
-  const translateX = useRef(new Animated.Value(-10)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(translateX, {
-        toValue: 0,
-        damping: 25,
-        delay: 150 + index * 40,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 300,
-        delay: 150 + index * 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  return (
-    <Animated.View
-      style={{
-        transform: [{ translateX }],
-        opacity: opacity,
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: C.surfaceAlt,
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: C.border,
-          padding: 14,
-          marginBottom: 8,
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <View
-          style={{
-            width: 3,
-            height: 36,
-            borderRadius: 2,
-            backgroundColor: color,
-            marginRight: 12,
-          }}
-        />
-
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text
-              style={{
-                fontSize: 15,
-                fontWeight: '700',
-                color: C.textPrimary,
-                letterSpacing: -0.2,
-                marginRight: 8,
-              }}
-            >
-              {grade.matiere}
-            </Text>
-            <View
-              style={{
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                borderRadius: 6,
-                backgroundColor: C.accentBg,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 9,
-                  fontWeight: '600',
-                  color: C.accentDim,
-                  letterSpacing: 0.3,
-                }}
-              >
-                Coef. {grade.coefficient}
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-            <Text style={{ fontSize: 11, color: C.textMuted, marginRight: 10 }}>
-              {level}
-            </Text>
-            {grade.rang && grade.effectif && (
-              <>
-                <View
-                  style={{
-                    width: 2,
-                    height: 2,
-                    borderRadius: 1,
-                    backgroundColor: C.textMuted,
-                    marginRight: 10,
-                  }}
-                />
-                <Text style={{ fontSize: 11, color: C.textMuted }}>
-                  Rang #{grade.rang}/{grade.effectif}
-                </Text>
-              </>
-            )}
-          </View>
-
-          {grade.appreciation && (
-            <Text
-              style={{
-                fontSize: 11,
-                color: C.textDim,
-                marginTop: 4,
-                fontStyle: 'italic',
-              }}
-            >
-              "{grade.appreciation}"
-            </Text>
-          )}
-        </View>
-
-        <GradeCircle note={grade.moyenne} size="md" />
-      </View>
-    </Animated.View>
-  );
-};
-
-// ─── Tab Button ────────────────────────────────────────────────────────────
-interface TabButtonProps {
+// ─── ONGLET À SOULIGNEMENT ANIMÉ ─────────────────────────────────────────
+// Remplace les boutons pleins colorés par un système éditorial : le texte
+// s'assombrit/s'éclaircit, un trait fin en dégradé apparaît sous l'onglet
+// actif. Pas de fond plein, pas de pastille — juste de la typographie.
+const UnderlineTab = ({
+  label,
+  icon,
+  active,
+  onPress,
+  compact,
+}: {
   label: string;
-  icon: keyof typeof Feather.glyphMap;
-  isActive: boolean;
+  icon?: FeatherIconName;
+  active: boolean;
   onPress: () => void;
-}
+  compact?: boolean;
+}) => {
+  const { colors } = useTheme();
+  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
 
-const TabButton: React.FC<TabButtonProps> = ({ label, icon, isActive, onPress }) => (
-  <TouchableOpacity
-    activeOpacity={0.7}
-    onPress={onPress}
-    style={{
-      flex: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 8,
-      borderRadius: 10,
-      backgroundColor: isActive ? C.accent : 'transparent',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      gap: 6,
-    }}
-  >
-    <Feather name={icon} size={16} color={isActive ? '#FFFFFF' : C.textMuted} />
-    <Text
-      style={{
-        fontSize: 11,
-        fontWeight: isActive ? '700' : '500',
-        color: isActive ? '#FFFFFF' : C.textMuted,
-        letterSpacing: 0.3,
-      }}
+  useEffect(() => {
+    Animated.timing(progress, { toValue: active ? 1 : 0, duration: 200, useNativeDriver: false }).start();
+  }, [active]);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={[styles.tabItem, compact && styles.tabItemCompact]}
     >
-      {label}
-    </Text>
-  </TouchableOpacity>
+      <View style={styles.tabItemRow}>
+        {icon && <Feather name={icon} size={13} color={active ? colors.text : colors.textMuted} />}
+        <Text
+          style={[
+            compact ? styles.tabLabelCompact : styles.tabLabel,
+            { color: active ? colors.text : colors.textMuted, fontWeight: active ? '700' : '500' },
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
+      <Animated.View style={[styles.tabUnderlineTrack, { opacity: progress }]}>
+        <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.tabUnderline} />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── BADGE DE NOTE EN ANNEAU ──────────────────────────────────────────────
+// Un anneau fin plutôt qu'un disque rempli : la couleur reste un signal
+// (performance), pas un aplat qui alourdit chaque ligne.
+const GradeRing = ({ note, colors }: { note: number; colors: any }) => {
+  const color = getGradeColor(note, colors);
+  return (
+    <View style={[styles.gradeRing, { borderColor: color }]}>
+      <Text style={[styles.gradeRingText, { color }]}>{note.toFixed(1)}</Text>
+    </View>
+  );
+};
+
+// ─── LIGNE MATIÈRE ──────────────────────────────────────────────────────
+// Plus de carte individuelle avec bordure colorée à gauche : les matières
+// vivent dans une seule surface, séparées par des filets fins — comme un
+// vrai relevé de notes plutôt qu'un empilement de widgets.
+const SubjectRow = ({ grade, isLast, colors }: { grade: Grade; isLast: boolean; colors: any }) => (
+  <View style={[styles.subjectRow, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+    <View style={{ flex: 1, marginRight: 14 }}>
+      <Text style={[styles.subjectName, { color: colors.text }]}>{grade.matiere}</Text>
+      <View style={styles.subjectMetaRow}>
+        <Text style={[styles.subjectMeta, { color: colors.textMuted }]}>Coef. {grade.coefficient}</Text>
+        {grade.rang && grade.effectif && (
+          <>
+            <View style={[styles.metaDot, { backgroundColor: colors.textMuted }]} />
+            <Text style={[styles.subjectMeta, { color: colors.textMuted }]}>
+              {grade.rang}ᵉ / {grade.effectif}
+            </Text>
+          </>
+        )}
+      </View>
+      {grade.appreciation && (
+        <Text style={[styles.appreciation, { color: colors.textSecondary }]} numberOfLines={2}>
+          {grade.appreciation}
+        </Text>
+      )}
+    </View>
+    <GradeRing note={grade.moyenne} colors={colors} />
+  </View>
 );
 
-// ─── Screen ─────────────────────────────────────────────────────────────────
+// ─── CARTE BULLETIN ─────────────────────────────────────────────────────
+const ReportCardView = ({ report, colors }: { report: ReportCard; colors: any }) => {
+  const mentionConfig = getMentionConfig(report.mention, colors);
+  return (
+    <View style={[styles.reportCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+      {/* ── En-tête : moyenne en grand format éditorial ── */}
+      <View style={styles.reportHead}>
+        <Text style={[styles.reportPeriod, { color: colors.textMuted }]}>{report.periode}</Text>
+        <View style={styles.reportHeroRow}>
+          <Text style={[styles.reportHero, { color: mentionConfig.color }]}>
+            {report.moyenneGenerale.toFixed(1)}
+            <Text style={[styles.reportHeroSuffix, { color: colors.textMuted }]}>/20</Text>
+          </Text>
+          <View style={[styles.mentionPill, { borderColor: `${mentionConfig.color}45` }]}>
+            <Text style={[styles.mentionText, { color: mentionConfig.color }]}>{mentionConfig.label}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={[styles.reportDivider, { backgroundColor: colors.border }]} />
+
+      {/* ── Matières ── */}
+      <View style={{ paddingHorizontal: 20 }}>
+        {report.matieres.map((grade, i) => (
+          <SubjectRow key={grade.id} grade={grade} isLast={i === report.matieres.length - 1} colors={colors} />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+// ─── EMPTY STATE ────────────────────────────────────────────────────────
+const EmptyState = ({ title, description, icon }: { title: string; description: string; icon: FeatherIconName }) => {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.emptyWrap}>
+      <View style={[styles.emptyIcon, { backgroundColor: `${BRAND_VIOLET}10` }]}>
+        <Feather name={icon} size={22} color={BRAND_VIOLET} />
+      </View>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.emptyDescription, { color: colors.textMuted }]}>{description}</Text>
+    </View>
+  );
+};
+
+// ─── SCREEN PRINCIPAL ───────────────────────────────────────────────────
 export const ParentGradesScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState(MOCK_REPORT_CARDS[0]?.id || '');
-  const [activeTab, setActiveTab] = useState<'notes' | 'timetable' | 'attendance' | 'courses' | 'clubs' | 'teachers'>('notes');
+  const [selectedPeriodId, setSelectedPeriodId] = useState(MOCK_REPORT_CARDS[MOCK_REPORT_CARDS.length - 1]?.id ?? '');
+  const [activeTab, setActiveTab] = useState<CategoryKey>('notes');
 
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  if (!user) return <LoadingSpinner fullScreen />;
+  const currentReport = MOCK_REPORT_CARDS.find((r) => r.id === selectedPeriodId);
 
-  const currentReport = MOCK_REPORT_CARDS.find(r => r.id === selectedPeriod);
-  const mentionConfig = currentReport ? getMentionConfig(currentReport.mention) : null;
-  const totalCoef = currentReport?.matieres.reduce((acc, m) => acc + m.coefficient, 0) || 0;
-
-  const initials = `${user.prenoms?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase();
-
-  // Animation pour le contenu
-  const contentScale = useRef(new Animated.Value(0.95)).current;
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(contentScale, {
-        toValue: 1,
-        damping: 25,
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [selectedPeriod]);
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'notes':
-        return renderNotesContent();
-      case 'timetable':
-        return renderTimetableContent();
-      case 'attendance':
-        return renderAttendanceContent();
-      case 'courses':
-        return renderCoursesContent();
-      case 'clubs':
-        return renderClubsContent();
-      case 'teachers':
-        return renderTeachersContent();
-      default:
-        return renderNotesContent();
-    }
+  const emptyByTab: Record<Exclude<CategoryKey, 'notes'>, { title: string; description: string; icon: FeatherIconName }> = {
+    timetable: { title: 'Emploi du temps', description: "L'emploi du temps de votre enfant sera disponible ici.", icon: 'calendar' },
+    attendance: { title: 'Présences', description: 'Le suivi des présences de votre enfant sera disponible ici.', icon: 'check-square' },
+    courses: { title: 'Cours', description: 'La liste des cours de votre enfant sera disponible ici.', icon: 'book' },
+    clubs: { title: 'Clubs', description: 'Les clubs de votre enfant seront disponibles ici.', icon: 'users' },
+    teachers: { title: 'Professeurs', description: 'La liste des professeurs de votre enfant sera disponible ici.', icon: 'user' },
   };
-
-  const renderNotesContent = () => {
-    if (!currentReport || !mentionConfig) {
-      return (
-        <EmptyState
-          title="Aucun bulletin"
-          description="Aucun bulletin n'est disponible pour le moment"
-          icon="book-open"
-          variant="default"
-        />
-      );
-    }
-
-    return (
-      <Animated.View
-        style={{
-          transform: [{ scale: contentScale }],
-          opacity: contentOpacity,
-        }}
-      >
-        {/* Carte résumé */}
-        <View style={{ marginBottom: 20 }}>
-          <Card variant="elevated" padding="lg" glow>
-            <LinearGradient
-              colors={[mentionConfig.color + '20', 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 3,
-              }}
-            />
-
-            <View style={{ alignItems: 'center' }}>
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: C.textSecondary,
-                  letterSpacing: 0.3,
-                }}
-              >
-                {currentReport.periode}
-              </Text>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16 }}>
-                <View style={{ alignItems: 'center', marginRight: 24 }}>
-                  <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600' }}>
-                    Moyenne
-                  </Text>
-                  <View
-                    style={{
-                      marginTop: 4,
-                      width: 64,
-                      height: 64,
-                      borderRadius: 32,
-                      backgroundColor: mentionConfig.bg,
-                      borderWidth: 2,
-                      borderColor: mentionConfig.color + '40',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 20,
-                        fontWeight: '800',
-                        color: mentionConfig.color,
-                        letterSpacing: -0.5,
-                      }}
-                    >
-                      {currentReport.moyenneGenerale.toFixed(1)}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 8,
-                        color: mentionConfig.color + '80',
-                        fontWeight: '600',
-                      }}
-                    >
-                      /20
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={{
-                    width: 1,
-                    height: 50,
-                    backgroundColor: C.border,
-                    marginRight: 24,
-                  }}
-                />
-
-                <View style={{ alignItems: 'center' }}>
-                  <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600' }}>
-                    Mention
-                  </Text>
-                  <View style={{ marginTop: 4 }}>
-                    <Badge
-                      text={mentionConfig.label}
-                      variant={
-                        currentReport.mention === 'EXCELLENT' ? 'success' :
-                        currentReport.mention === 'TRES_BIEN' ? 'info' :
-                        currentReport.mention === 'BIEN' ? 'primary' :
-                        currentReport.mention === 'ASSEZ_BIEN' ? 'warning' : 'error'
-                      }
-                      size="md"
-                      glow
-                    />
-                  </View>
-                  <Text style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
-                    {totalCoef} coefficients
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Card>
-        </View>
-
-        {/* Détail des matières */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: '700',
-              color: C.textSecondary,
-              letterSpacing: 0.5,
-              textTransform: 'uppercase',
-            }}
-          >
-            Détail des matières
-          </Text>
-          <Text style={{ fontSize: 11, color: C.textMuted }}>
-            {currentReport.matieres.length} matières
-          </Text>
-        </View>
-
-        {currentReport.matieres.map((matiere, index) => (
-          <GradeItem key={matiere.id} grade={matiere} index={index} />
-        ))}
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={{
-            backgroundColor: C.surface,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: C.border,
-            padding: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 16,
-          }}
-        >
-          <Feather name="download" size={18} color={C.accentDim} style={{ marginRight: 10 }} />
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: '600',
-              color: C.accentDim,
-              letterSpacing: 0.2,
-            }}
-          >
-            Télécharger le bulletin
-          </Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
-  const renderTimetableContent = () => (
-    <View style={{ flex: 1 }}>
-      <EmptyState
-        title="Emploi du temps"
-        description="L'emploi du temps de votre enfant sera disponible ici"
-        icon="calendar"
-        variant="default"
-      />
-    </View>
-  );
-
-  const renderAttendanceContent = () => (
-    <View style={{ flex: 1 }}>
-      <EmptyState
-        title="Présences"
-        description="Le suivi des présences de votre enfant sera disponible ici"
-        icon="check-square"
-        variant="default"
-      />
-    </View>
-  );
-
-  const renderCoursesContent = () => (
-    <View style={{ flex: 1 }}>
-      <EmptyState
-        title="Cours"
-        description="La liste des cours de votre enfant sera disponible ici"
-        icon="book"
-        variant="default"
-      />
-    </View>
-  );
-
-  const renderClubsContent = () => {
-    // Ici on pourrait passer l'ID du club ou une liste de clubs
-    // Pour l'exemple, on affiche un placeholder
-    return (
-      <View style={{ flex: 1 }}>
-        <StudentClubDetailScreen />
-      </View>
-    );
-  };
-
-  const renderTeachersContent = () => (
-    <View style={{ flex: 1 }}>
-      <EmptyState
-        title="Professeurs"
-        description="La liste des professeurs de votre enfant sera disponible ici"
-        icon="users"
-        variant="default"
-      />
-    </View>
-  );
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* ───── Header ───── */}
-        <View
-          style={{
-            backgroundColor: C.surface,
-            paddingTop: 56,
-            paddingBottom: 20,
-            paddingHorizontal: 22,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
+        {/* ───── HEADER ───── */}
+        <LinearGradient
+          colors={GRADIENT_BRAND}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 18 }]}
         >
-          <View
-            style={{
-              position: 'absolute',
-              top: -50,
-              right: -50,
-              width: 200,
-              height: 200,
-              backgroundColor: 'rgba(99,102,241,0.06)',
-              borderRadius: 100,
-            }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              bottom: -30,
-              left: -20,
-              width: 140,
-              height: 140,
-              backgroundColor: 'rgba(52,211,153,0.04)',
-              borderRadius: 70,
-            }}
-          />
-
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 16,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={styles.headerRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
               <TouchableOpacity
+                activeOpacity={0.75}
                 onPress={() => navigation.goBack()}
-                style={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: C.surfaceAlt,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: C.border,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 12,
-                }}
+                accessibilityRole="button"
+                accessibilityLabel="Retour"
+                style={styles.headerBackBtn}
               >
-                <Feather name="arrow-left" size={20} color={C.textSecondary} />
+                <Feather name="arrow-left" size={18} color="#FFFFFF" />
               </TouchableOpacity>
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '700',
-                  letterSpacing: 2.5,
-                  color: C.accent,
-                  textTransform: 'uppercase',
-                }}
-              >
-                SURYA
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.headerEyebrow}>Suivi de l'élève</Text>
+                <Text style={styles.headerTitle} numberOfLines={1}>Résultats scolaires</Text>
+              </View>
             </View>
-
-            <LinearGradient
-              colors={['#3730A3', '#6366F1']}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 13,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => navigation.navigate('Profile')}
+              accessibilityRole="button"
+              accessibilityLabel="Profil"
+              style={styles.headerAvatarBtn}
             >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>
-                {initials}
-              </Text>
-            </LinearGradient>
+              <Text style={styles.headerAvatarText}>JD</Text>
+            </TouchableOpacity>
           </View>
+        </LinearGradient>
 
-          <Text
-            style={{
-              fontSize: 22,
-              fontWeight: '700',
-              color: '#E8EAF0',
-              letterSpacing: -0.3,
-            }}
-          >
-            Suivi de l'élève
-          </Text>
-          <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 4, letterSpacing: 0.2 }}>
-            {currentReport?.periode || 'Toutes les informations'}
-          </Text>
-        </View>
-
-        {/* ───── Tabs ───── */}
-        <View
-          style={{
-            backgroundColor: C.surface,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: C.border,
-          }}
-        >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 4 }}
-          >
-            <TabButton
-              label="Notes"
-              icon="book-open"
-              isActive={activeTab === 'notes'}
-              onPress={() => setActiveTab('notes')}
-            />
-            <TabButton
-              label="Emploi"
-              icon="calendar"
-              isActive={activeTab === 'timetable'}
-              onPress={() => setActiveTab('timetable')}
-            />
-            <TabButton
-              label="Présences"
-              icon="check-square"
-              isActive={activeTab === 'attendance'}
-              onPress={() => setActiveTab('attendance')}
-            />
-            <TabButton
-              label="Cours"
-              icon="book"
-              isActive={activeTab === 'courses'}
-              onPress={() => setActiveTab('courses')}
-            />
-            <TabButton
-              label="Clubs"
-              icon="users"
-              isActive={activeTab === 'clubs'}
-              onPress={() => setActiveTab('clubs')}
-            />
-            <TabButton
-              label="Professeurs"
-              icon="user"
-              isActive={activeTab === 'teachers'}
-              onPress={() => setActiveTab('teachers')}
-            />
+        {/* ───── ONGLETS DE CATÉGORIE ───── */}
+        <View style={[styles.tabsBar, { borderBottomColor: colors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsBarContent}>
+            {CATEGORY_TABS.map((tab) => (
+              <UnderlineTab
+                key={tab.key}
+                label={tab.label}
+                icon={tab.icon}
+                active={activeTab === tab.key}
+                onPress={() => setActiveTab(tab.key)}
+              />
+            ))}
           </ScrollView>
         </View>
 
-        {/* ───── Contenu ───── */}
-        <View style={{ paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 100 }}>
-          {renderContent()}
+        <View style={styles.body}>
+          {activeTab === 'notes' ? (
+            <>
+              {/* ───── SÉLECTEUR DE PÉRIODE ───── */}
+              <View style={styles.periodRow}>
+                {MOCK_REPORT_CARDS.map((report) => (
+                  <UnderlineTab
+                    key={report.id}
+                    label={report.periodeCourte}
+                    active={selectedPeriodId === report.id}
+                    onPress={() => setSelectedPeriodId(report.id)}
+                    compact
+                  />
+                ))}
+              </View>
+
+              {currentReport ? (
+                <ReportCardView report={currentReport} colors={colors} />
+              ) : (
+                <EmptyState title="Aucun bulletin" description="Aucun bulletin n'est disponible pour le moment." icon="book-open" />
+              )}
+
+              {currentReport && (
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel="Télécharger le bulletin"
+                  style={[styles.downloadBtn, { borderColor: colors.border }]}
+                >
+                  <Feather name="download" size={15} color={BRAND_VIOLET} />
+                  <Text style={[styles.downloadLabel, { color: BRAND_VIOLET }]}>Télécharger le bulletin</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <EmptyState {...emptyByTab[activeTab]} />
+          )}
         </View>
       </ScrollView>
     </View>
-    
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  header: {
+    paddingBottom: 22,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerBackBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  headerEyebrow: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.2, textTransform: 'uppercase' },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF', marginTop: 2, letterSpacing: -0.3 },
+  headerAvatarBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  headerAvatarText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+
+  tabsBar: { borderBottomWidth: 1 },
+  tabsBarContent: { paddingHorizontal: 16, gap: 22 },
+  tabItem: { alignItems: 'center', paddingTop: 14, paddingBottom: 11 },
+  tabItemCompact: { paddingTop: 0, paddingBottom: 8 },
+  tabItemRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tabLabel: { fontSize: 13 },
+  tabLabelCompact: { fontSize: 12.5 },
+  tabUnderlineTrack: { height: 2, width: '100%', marginTop: 9, borderRadius: 1, overflow: 'hidden' },
+  tabUnderline: { flex: 1, borderRadius: 1 },
+
+  body: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 36 },
+
+  periodRow: { flexDirection: 'row', gap: 22, marginBottom: 16, paddingLeft: 2 },
+
+  reportCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingTop: 22,
+    ...Platform.select({
+      ios: { shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 12 },
+      android: { elevation: 1 },
+    }),
+  },
+  reportHead: { paddingHorizontal: 20 },
+  reportPeriod: { fontSize: 11.5, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
+  reportHeroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reportHero: { fontSize: 40, fontWeight: '700', letterSpacing: -1.2 },
+  reportHeroSuffix: { fontSize: 16, fontWeight: '500' },
+  mentionPill: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 },
+  mentionText: { fontSize: 12, fontWeight: '700' },
+  reportDivider: { height: 1, marginTop: 20, marginBottom: 4 },
+
+  subjectRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
+  subjectName: { fontSize: 14.5, fontWeight: '600', marginBottom: 5 },
+  subjectMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  subjectMeta: { fontSize: 11.5 },
+  metaDot: { width: 3, height: 3, borderRadius: 1.5 },
+  appreciation: { fontSize: 12, fontStyle: 'italic', marginTop: 6, lineHeight: 16 },
+
+  gradeRing: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gradeRingText: { fontSize: 13.5, fontWeight: '700' },
+
+  downloadBtn: {
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  downloadLabel: { fontSize: 12.5, fontWeight: '600' },
+
+  emptyWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 52 },
+  emptyIcon: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  emptyTitle: { fontSize: 15.5, fontWeight: '700', marginBottom: 5 },
+  emptyDescription: { fontSize: 12.5, textAlign: 'center', maxWidth: 260, lineHeight: 18 },
+});

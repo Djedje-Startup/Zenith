@@ -10,72 +10,42 @@ import {
   Platform,
   StatusBar,
   Animated,
+  TextInput,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../../hooks/useAuth';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme, COLORS } from '../../theme';
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  pink: '#F472B6',
-  pinkBg: 'rgba(244,114,182,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
-
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── TYPES ──────────────────────────────────────────────────────────────────
 interface Category {
   value: string;
   label: string;
   icon: keyof typeof Feather.glyphMap;
   color: string;
-  bg: string;
 }
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
 const CATEGORIES: Category[] = [
-  { value: 'PEDAGOGIE', label: 'Pédagogie', icon: 'book-open', color: C.blue, bg: C.blueBg },
-  { value: 'ADMINISTRATION', label: 'Administration', icon: 'briefcase', color: C.purple, bg: C.purpleBg },
-  { value: 'FINANCE', label: 'Finance', icon: 'credit-card', color: C.amber, bg: C.amberBg },
-  { value: 'COMPORTEMENT', label: 'Comportement', icon: 'users', color: C.pink, bg: C.pinkBg },
-  { value: 'TECHNIQUE', label: 'Technique', icon: 'cpu', color: C.green, bg: C.greenBg },
-  { value: 'AUTRE', label: 'Autre', icon: 'more-horizontal', color: C.textMuted, bg: C.surfaceAlt },
+  { value: 'PEDAGOGIE', label: 'Pédagogie', icon: 'book-open', color: '#60A5FA' },
+  { value: 'ADMINISTRATION', label: 'Administration', icon: 'briefcase', color: '#A78BFA' },
+  { value: 'FINANCE', label: 'Finance', icon: 'credit-card', color: '#FBBF24' },
+  { value: 'COMPORTEMENT', label: 'Comportement', icon: 'users', color: '#F472B6' },
+  { value: 'TECHNIQUE', label: 'Technique', icon: 'cpu', color: '#34D399' },
+  { value: 'AUTRE', label: 'Autre', icon: 'more-horizontal', color: '#6B7280' },
 ];
 
-// ─── Category Chip ──────────────────────────────────────────────────────────
+// ─── COMPOSANTS ──────────────────────────────────────────────────────────────
 const CategoryChip = ({
   category,
   isSelected,
   onPress,
+  colors,
 }: {
   category: Category;
   isSelected: boolean;
   onPress: () => void;
+  colors: any;
 }) => (
   <TouchableOpacity
     activeOpacity={0.7}
@@ -84,9 +54,9 @@ const CategoryChip = ({
       paddingHorizontal: 14,
       paddingVertical: 10,
       borderRadius: 12,
-      backgroundColor: isSelected ? category.color : C.surfaceAlt,
+      backgroundColor: isSelected ? category.color : colors.surfaceElevated,
       borderWidth: 1,
-      borderColor: isSelected ? category.color : C.border,
+      borderColor: isSelected ? category.color : colors.border,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
@@ -101,7 +71,7 @@ const CategoryChip = ({
       style={{
         fontSize: 11,
         fontWeight: isSelected ? '700' : '600',
-        color: isSelected ? '#FFFFFF' : C.textSecondary,
+        color: isSelected ? '#FFFFFF' : colors.textSecondary,
         letterSpacing: 0.2,
       }}
     >
@@ -120,8 +90,8 @@ const CategoryChip = ({
   </TouchableOpacity>
 );
 
-// ─── Step Indicator ─────────────────────────────────────────────────────────
-const StepIndicator = ({ currentStep }: { currentStep: number }) => (
+// ─── STEP INDICATOR ─────────────────────────────────────────────────────────
+const StepIndicator = ({ currentStep, colors }: { currentStep: number; colors: any }) => (
   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       {[1, 2, 3].map((step) => (
@@ -131,20 +101,19 @@ const StepIndicator = ({ currentStep }: { currentStep: number }) => (
             width: 24,
             height: 4,
             borderRadius: 2,
-            backgroundColor: step <= currentStep ? C.accent : C.border,
+            backgroundColor: step <= currentStep ? colors.primary : colors.border,
           }}
         />
       ))}
     </View>
-    <Text style={{ fontSize: 10, color: C.textMuted, marginLeft: 4 }}>
+    <Text style={{ fontSize: 10, color: colors.textMuted, marginLeft: 4 }}>
       Étape {currentStep}/3
     </Text>
   </View>
 );
 
-// ─── Success State ──────────────────────────────────────────────────────────
-const SuccessState = ({ onReset }: { onReset: () => void }) => {
-  // Animation
+// ─── SUCCESS STATE ──────────────────────────────────────────────────────────
+const SuccessState = ({ onReset, colors }: { onReset: () => void; colors: any }) => {
   const scale = useRef(new Animated.Value(0.9)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -178,21 +147,21 @@ const SuccessState = ({ onReset }: { onReset: () => void }) => {
           width: 80,
           height: 80,
           borderRadius: 40,
-          backgroundColor: C.greenBg,
+          backgroundColor: colors.success + '20',
           borderWidth: 2,
-          borderColor: C.green + '30',
+          borderColor: colors.success + '30',
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 16,
         }}
       >
-        <Feather name="check" size={36} color={C.green} />
+        <Feather name="check" size={36} color={colors.success} />
       </View>
       <Text
         style={{
           fontSize: 20,
           fontWeight: '700',
-          color: C.textPrimary,
+          color: colors.text,
           letterSpacing: -0.3,
         }}
       >
@@ -204,41 +173,52 @@ const SuccessState = ({ onReset }: { onReset: () => void }) => {
           textAlign: 'center',
           marginTop: 8,
           maxWidth: 280,
-          color: C.textMuted,
+          color: colors.textMuted,
         }}
       >
         Votre réclamation a été transmise avec succès. Vous serez notifié dès qu'elle sera traitée.
       </Text>
-      <View style={{ marginTop: 24 }}>
-        <Button
-          title="Nouvelle réclamation"
-          variant="secondary"
-          size="md"
-          onPress={onReset}
-          icon={<Feather name="plus" size={16} color={C.accentDim} />}
-        />
-      </View>
+      <TouchableOpacity
+        style={{
+          marginTop: 24,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+        }}
+        onPress={onReset}
+      >
+        <Feather name="plus" size={16} color={colors.primary} />
+        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+          Nouvelle réclamation
+        </Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 };
 
-// ─── Header ──────────────────────────────────────────────────────────────────
-const Header = ({ children }: { children: string }) => {
-  const { user } = useAuth();
-  const initials = `${user?.prenoms?.[0] ?? ''}${user?.nom?.[0] ?? ''}`.toUpperCase();
+// ─── HEADER ──────────────────────────────────────────────────────────────────
+const Header = ({ children, colors }: { children: string; colors: any }) => {
+  const navigation = useNavigation<any>();
 
   return (
     <View
       style={{
-        backgroundColor: C.surface,
+        backgroundColor: colors.surface,
         paddingTop: 56,
         paddingBottom: 28,
         paddingHorizontal: 22,
         overflow: 'hidden',
         position: 'relative',
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
       }}
     >
-      {/* Halos décoratifs */}
       <View
         style={{
           position: 'absolute',
@@ -246,7 +226,7 @@ const Header = ({ children }: { children: string }) => {
           right: -50,
           width: 200,
           height: 200,
-          backgroundColor: 'rgba(99,102,241,0.06)',
+          backgroundColor: colors.primary + '12',
           borderRadius: 100,
         }}
       />
@@ -257,12 +237,11 @@ const Header = ({ children }: { children: string }) => {
           left: -20,
           width: 140,
           height: 140,
-          backgroundColor: 'rgba(52,211,153,0.04)',
+          backgroundColor: colors.secondary + '10',
           borderRadius: 70,
         }}
       />
 
-      {/* Top bar */}
       <View
         style={{
           flexDirection: 'row',
@@ -273,69 +252,159 @@ const Header = ({ children }: { children: string }) => {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity
+            onPress={() => navigation.goBack()}
             style={{
               width: 40,
               height: 40,
-              backgroundColor: C.surfaceAlt,
+              backgroundColor: colors.surfaceElevated,
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: C.border,
+              borderColor: colors.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={C.textSecondary} />
+            <Feather name="arrow-left" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 2.5,
-              color: C.accent,
-              textTransform: 'uppercase',
-            }}
-          >
-            ✦ SURYA
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <LinearGradient
+              colors={colors.gradientBrand}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>Z</Text>
+            </LinearGradient>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '700',
+                letterSpacing: 2.5,
+                color: colors.primary,
+                textTransform: 'uppercase',
+              }}
+            >
+              ZENITH
+            </Text>
+          </View>
         </View>
 
-        <LinearGradient
-          colors={['#3730A3', '#6366F1']}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 13,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>
-            {initials}
-          </Text>
-        </LinearGradient>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <LinearGradient
+            colors={colors.gradientBrand}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 13,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>JD</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
 
-      {/* Titre */}
       <Text
         style={{
-          fontSize: 22,
+          fontSize: 24,
           fontWeight: '700',
-          color: '#E8EAF0',
+          color: colors.text,
           letterSpacing: -0.3,
         }}
       >
         {children}
       </Text>
-      <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 4, letterSpacing: 0.2 }}>
+      <Text style={{
+        fontSize: 13,
+        color: colors.textMuted,
+        marginTop: 4,
+        letterSpacing: 0.2,
+      }}>
         Nous vous répondrons dans les plus brefs délais
       </Text>
     </View>
   );
 };
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ─── INPUT COMPOSANT PERSONNALISÉ ──────────────────────────────────────────
+const FormInput = ({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  multiline = false,
+  numberOfLines = 1,
+  required = false,
+  icon,
+  helper,
+  colors,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  multiline?: boolean;
+  numberOfLines?: number;
+  required?: boolean;
+  icon?: React.ReactNode;
+  helper?: string;
+  colors: any;
+}) => (
+  <View style={{ marginBottom: 16 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+      <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>
+        {label}
+      </Text>
+      {required && <Text style={{ color: colors.error }}>*</Text>}
+    </View>
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+        paddingHorizontal: 12,
+        paddingVertical: multiline ? 12 : 0,
+        minHeight: 48,
+      }}
+    >
+      {icon && <View style={{ marginRight: 10 }}>{icon}</View>}
+      <TextInput
+        style={{
+          flex: 1,
+          color: colors.text,
+          fontSize: 14,
+          fontFamily: 'Inter_400Regular',
+          textAlignVertical: multiline ? 'top' : 'center',
+          minHeight: multiline ? 80 : 48,
+          paddingVertical: multiline ? 4 : 0,
+        }}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textMuted}
+        value={value}
+        onChangeText={onChangeText}
+        multiline={multiline}
+        numberOfLines={numberOfLines}
+      />
+    </View>
+    {helper && (
+      <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 4 }}>
+        {helper}
+      </Text>
+    )}
+  </View>
+);
+
+// ─── SCREEN PRINCIPAL ──────────────────────────────────────────────────────
 export const ParentComplaintScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { colors, isDark } = useTheme();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('AUTRE');
@@ -343,7 +412,6 @@ export const ParentComplaintScreen: React.FC = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Animation du formulaire
   const formTranslateY = useRef(new Animated.Value(20)).current;
   const formOpacity = useRef(new Animated.Value(0)).current;
 
@@ -361,8 +429,6 @@ export const ParentComplaintScreen: React.FC = () => {
       }),
     ]).start();
   }, []);
-
-  if (!user) return <LoadingSpinner fullScreen />;
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim()) {
@@ -391,14 +457,14 @@ export const ParentComplaintScreen: React.FC = () => {
 
   if (isSuccess) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
-        <Header children="Nouvelle réclamation" />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+        <Header children="Nouvelle réclamation" colors={colors} />
         <ScrollView
           style={{ flex: 1, paddingHorizontal: 20, paddingTop: 24 }}
           showsVerticalScrollIndicator={false}
         >
-          <SuccessState onReset={handleReset} />
+          <SuccessState onReset={handleReset} colors={colors} />
         </ScrollView>
       </View>
     );
@@ -407,19 +473,18 @@ export const ParentComplaintScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1, backgroundColor: C.bg }}
+      style={{ flex: 1, backgroundColor: colors.background }}
     >
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
-      <Header children="Nouvelle réclamation" />
+      <Header children="Nouvelle réclamation" colors={colors} />
 
       <ScrollView
         style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Indicateur d'étape */}
-        <StepIndicator currentStep={currentStep} />
+        <StepIndicator currentStep={currentStep} colors={colors} />
 
         <Animated.View
           style={{
@@ -427,12 +492,12 @@ export const ParentComplaintScreen: React.FC = () => {
             transform: [{ translateY: formTranslateY }],
           }}
         >
-          {/* ─── Catégorie ─── */}
+          {/* Catégorie */}
           <Text
             style={{
               fontSize: 12,
               fontWeight: '700',
-              color: C.textSecondary,
+              color: colors.textSecondary,
               letterSpacing: 0.8,
               textTransform: 'uppercase',
               marginBottom: 12,
@@ -453,31 +518,48 @@ export const ParentComplaintScreen: React.FC = () => {
                 category={cat}
                 isSelected={selectedCategory === cat.value}
                 onPress={() => setSelectedCategory(cat.value)}
+                colors={colors}
               />
             ))}
           </ScrollView>
 
-          {/* ─── Formulaire ─── */}
-          <Card variant="default" padding="md" style={{ marginBottom: 24 }}>
-            <Input
+          {/* Formulaire */}
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: colors.border,
+              padding: 16,
+              marginBottom: 24,
+              shadowColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.04)',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: isDark ? 0.3 : 0.06,
+              shadowRadius: 12,
+              elevation: isDark ? 4 : 2,
+            }}
+          >
+            <FormInput
               label="Titre"
               placeholder="Ex: Problème de connexion à la plateforme"
               value={title}
               onChangeText={setTitle}
-              leftIcon={<Feather name="edit-2" size={16} color={C.textMuted} />}
               required
+              icon={<Feather name="edit-2" size={16} color={colors.textMuted} />}
+              colors={colors}
             />
 
-            <Input
+            <FormInput
               label="Description"
               placeholder="Décrivez votre problème en détail..."
               value={description}
               onChangeText={setDescription}
               multiline
               numberOfLines={6}
-              leftIcon={<Feather name="file-text" size={16} color={C.textMuted} />}
               required
+              icon={<Feather name="file-text" size={16} color={colors.textMuted} />}
               helper="Minimum 20 caractères"
+              colors={colors}
             />
 
             {/* Pièce jointe (optionnel) */}
@@ -490,24 +572,24 @@ export const ParentComplaintScreen: React.FC = () => {
                 paddingVertical: 12,
                 paddingHorizontal: 14,
                 borderRadius: 12,
-                backgroundColor: C.surfaceAlt,
+                backgroundColor: colors.surfaceElevated,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
                 borderStyle: 'dashed',
                 marginTop: 4,
               }}
             >
-              <Feather name="paperclip" size={16} color={C.textMuted} />
-              <Text style={{ fontSize: 12, color: C.textMuted }}>
+              <Feather name="paperclip" size={16} color={colors.textMuted} />
+              <Text style={{ fontSize: 12, color: colors.textMuted }}>
                 Ajouter une pièce jointe (facultatif)
               </Text>
               <View style={{ marginLeft: 'auto' }}>
-                <Feather name="chevron-right" size={14} color={C.textMuted} />
+                <Feather name="chevron-right" size={14} color={colors.textMuted} />
               </View>
             </TouchableOpacity>
-          </Card>
+          </View>
 
-          {/* ─── Résumé de la catégorie ─── */}
+          {/* Résumé de la catégorie */}
           <View
             style={{
               flexDirection: 'row',
@@ -515,7 +597,7 @@ export const ParentComplaintScreen: React.FC = () => {
               gap: 10,
               padding: 12,
               borderRadius: 12,
-              backgroundColor: selectedCategoryData.bg,
+              backgroundColor: selectedCategoryData.color + '15',
               borderWidth: 1,
               borderColor: selectedCategoryData.color + '20',
               marginBottom: 20,
@@ -537,21 +619,51 @@ export const ParentComplaintScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* ─── Bouton d'envoi ─── */}
+          {/* Bouton d'envoi */}
           <View style={{ marginBottom: 32 }}>
-            <Button
-              title={isLoading ? 'Envoi en cours...' : 'Envoyer la réclamation'}
+            <TouchableOpacity
+              activeOpacity={0.8}
               onPress={handleSubmit}
-              loading={isLoading}
               disabled={isLoading}
-              variant="gradient"
-              size="lg"
-              fullWidth
-              icon={!isLoading ? <Feather name="send" size={16} color="#FFFFFF" /> : undefined}
-            />
+              style={{
+                paddingVertical: 14,
+                borderRadius: 14,
+                backgroundColor: isLoading ? colors.border : colors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'row',
+                gap: 10,
+                opacity: isLoading ? 0.6 : 1,
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <View
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 9,
+                      borderWidth: 2,
+                      borderColor: '#FFFFFF',
+                      borderTopColor: 'transparent',
+                    }}
+                  />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15 }}>
+                    Envoi en cours...
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Feather name="send" size={18} color="#FFFFFF" />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15 }}>
+                    Envoyer la réclamation
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* ─── Informations ─── */}
+          {/* Informations */}
           <View
             style={{
               flexDirection: 'row',
@@ -561,8 +673,8 @@ export const ParentComplaintScreen: React.FC = () => {
               marginBottom: 32,
             }}
           >
-            <Feather name="info" size={12} color={C.textMuted} />
-            <Text style={{ fontSize: 10, color: C.textMuted, textAlign: 'center' }}>
+            <Feather name="info" size={12} color={colors.textMuted} />
+            <Text style={{ fontSize: 10, color: colors.textMuted, textAlign: 'center' }}>
               Votre réclamation sera traitée sous 48h ouvrées
             </Text>
           </View>

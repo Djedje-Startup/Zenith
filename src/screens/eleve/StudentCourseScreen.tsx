@@ -1,49 +1,25 @@
 // src/screens/eleve/StudentCourseScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Modal,
-  Share,
-  Alert,
-  Linking,
-  Platform,
+  View, Text, ScrollView, TouchableOpacity, Pressable, RefreshControl, Modal, Alert, StatusBar,
+  Image, TextInput, Animated, StyleSheet, useWindowDimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedViewNative from '@react-native-masked-view/masked-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Layout } from '../../components/ui/Layout';
-import { Card } from '../../components/ui/Card';
+import { useTheme } from '../../theme';
 
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#8B5CF6';
+const GRADIENT_BRAND: [string, string] = [BRAND_ORANGE, BRAND_VIOLET];
+const MaskedView = MaskedViewNative as unknown as React.ComponentType<any>;
+type FeatherIconName = keyof typeof Feather.glyphMap;
 
-// Types
+// ─── TYPES & MOCK ────────────────────────────────────────────────────────
 interface CourseFile {
   id: string;
   nom: string;
@@ -52,666 +28,302 @@ interface CourseFile {
   taille: string;
   dateAjout: string;
 }
-
 interface Course {
   id: string;
   nom: string;
   professeur: string;
+  professeurPhoto?: string;
   horaire: string;
   salle: string;
   coefficient: number;
-  description?: string;
   fichiers: CourseFile[];
-  coursCount?: number;
 }
 
-// Mock Data enrichi
+const f = (id: string, nom: string, type: CourseFile['type'], taille: string, dateAjout: string): CourseFile =>
+  ({ id, nom, type, url: 'https://example.com/' + id, taille, dateAjout });
+
 const MOCK_COURSES: Course[] = [
   {
-    id: '1',
-    nom: 'Mathématiques',
-    professeur: 'M. NGOMA',
-    horaire: '08:00 - 09:30',
-    salle: 'A101',
-    coefficient: 4,
-    description: 'Cours de mathématiques - Algèbre et Géométrie',
-    coursCount: 12,
+    id: '1', nom: 'Mathématiques', professeur: 'M. NGOMA', professeurPhoto: 'https://i.pravatar.cc/150?u=ngoma',
+    horaire: '08:00 – 09:30', salle: 'A101', coefficient: 4,
     fichiers: [
-      { id: '1-1', nom: 'Cours Algèbre Chapitre 1', type: 'pdf', url: 'https://example.com/cours1.pdf', taille: '2.4 MB', dateAjout: '15 Oct 2025' },
-      { id: '1-2', nom: 'Exercices corrigés - Algèbre', type: 'pdf', url: 'https://example.com/exercices.pdf', taille: '1.8 MB', dateAjout: '12 Oct 2025' },
-      { id: '1-3', nom: 'Fiche révision - Géométrie', type: 'word', url: 'https://example.com/fiche.docx', taille: '856 KB', dateAjout: '10 Oct 2025' },
+      f('1-1', 'Cours Algèbre Chapitre 1', 'pdf', '2.4 MB', '15 Oct 2025'),
+      f('1-2', 'Exercices corrigés Algèbre', 'pdf', '1.8 MB', '12 Oct 2025'),
+      f('1-3', 'Fiche révision Géométrie', 'word', '856 KB', '10 Oct 2025'),
+      f('1-4', 'Formulaire du trimestre', 'pdf', '640 KB', '08 Oct 2025'),
     ],
   },
   {
-    id: '2',
-    nom: 'Français',
-    professeur: 'Mme LOUBAKI',
-    horaire: '10:00 - 11:30',
-    salle: 'A102',
-    coefficient: 4,
-    description: 'Cours de français - Littérature et Grammaire',
-    coursCount: 10,
+    id: '2', nom: 'Français', professeur: 'Mme LOUBAKI', professeurPhoto: 'https://i.pravatar.cc/150?u=loubaki',
+    horaire: '10:00 – 11:30', salle: 'A102', coefficient: 4,
     fichiers: [
-      { id: '2-1', nom: 'Cours - Le Roman', type: 'pdf', url: 'https://example.com/roman.pdf', taille: '3.2 MB', dateAjout: '14 Oct 2025' },
-      { id: '2-2', nom: 'Fiche de révision - Grammaire', type: 'word', url: 'https://example.com/grammaire.docx', taille: '1.2 MB', dateAjout: '11 Oct 2025' },
+      f('2-1', 'Cours Le Roman', 'pdf', '3.2 MB', '14 Oct 2025'),
+      f('2-2', 'Fiche Grammaire', 'word', '1.2 MB', '11 Oct 2025'),
     ],
   },
   {
-    id: '3',
-    nom: 'Anglais',
-    professeur: 'M. WAMBA',
-    horaire: '13:00 - 14:30',
-    salle: 'Labo Langues',
-    coefficient: 3,
-    description: 'Cours d\'anglais - Grammaire et Vocabulaire',
-    coursCount: 8,
+    id: '3', nom: 'Anglais', professeur: 'M. WAMBA', professeurPhoto: 'https://i.pravatar.cc/150?u=wamba',
+    horaire: '13:00 – 14:30', salle: 'Labo Langues', coefficient: 3,
     fichiers: [
-      { id: '3-1', nom: 'Cours - Tenses', type: 'pdf', url: 'https://example.com/tenses.pdf', taille: '1.5 MB', dateAjout: '13 Oct 2025' },
-      { id: '3-2', nom: 'Exercices - Tenses', type: 'pdf', url: 'https://example.com/tenses-exercices.pdf', taille: '950 KB', dateAjout: '13 Oct 2025' },
+      f('3-1', 'Cours Tenses', 'pdf', '1.5 MB', '13 Oct 2025'),
+      f('3-2', 'Exercices Tenses', 'pdf', '950 KB', '13 Oct 2025'),
+      f('3-3', 'Vocabulary list', 'ppt', '4.1 MB', '09 Oct 2025'),
     ],
   },
 ];
 
-// Configuration des types de fichiers
-const FILE_ICONS: Record<CourseFile['type'], { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
-  pdf: { icon: 'file-text', color: C.red, label: 'PDF' },
-  word: { icon: 'file', color: C.blue, label: 'Word' },
-  ppt: { icon: 'file', color: C.amber, label: 'PPT' },
-  excel: { icon: 'file', color: C.green, label: 'Excel' },
-  image: { icon: 'image', color: C.purple, label: 'Image' },
-  autre: { icon: 'file', color: C.textMuted, label: 'Fichier' },
+const FILE_LABEL: Record<CourseFile['type'], string> = { pdf: 'PDF', word: 'DOC', ppt: 'PPT', excel: 'XLS', image: 'IMG', autre: 'FILE' };
+const LINES = ['72%', '100%', '92%', '100%', '84%', '100%', '58%'];
+
+// ─── BRIQUES ──────────────────────────────────────────────────────────────
+const GradientIcon = ({ name, size }: { name: FeatherIconName; size: number }) => (
+  <MaskedView
+    style={{ width: size, height: size }}
+    maskElement={<View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><Feather name={name} size={size} color="#000" /></View>}
+  >
+    <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size }} />
+  </MaskedView>
+);
+
+const FadeIn = ({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) => {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(v, { toValue: 1, duration: 380, delay, useNativeDriver: true }).start(); }, []);
+  return <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>{children}</Animated.View>;
 };
 
-// Composants
-interface FileActionModalProps {
-  visible: boolean;
-  file: CourseFile | null;
-  onClose: () => void;
-  onDownload: () => void;
-  onOpenWith: () => void;
-}
-
-const FileActionModal: React.FC<FileActionModalProps> = ({
-  visible,
-  file,
-  onClose,
-  onDownload,
-  onOpenWith,
-}) => {
-  if (!file) return null;
-
-  const fileConfig = FILE_ICONS[file.type] || FILE_ICONS.autre;
-
+/** Matière = dossier (onglet + corps). Actif : rempli du dégradé de marque. */
+const FolderCard = ({ course, active, onPress, colors }: { course: Course; active: boolean; onPress: () => void; colors: any }) => {
+  const s = useRef(new Animated.Value(active ? 1 : 0.95)).current;
+  useEffect(() => { Animated.spring(s, { toValue: active ? 1 : 0.95, damping: 15, stiffness: 200, useNativeDriver: true }).start(); }, [active]);
+  const n = course.fichiers.length;
+  const inner = (
+    <>
+      <View style={styles.folderTop}>
+        {active ? <Feather name="folder" size={22} color="#FFFFFF" /> : <GradientIcon name="folder" size={22} />}
+        <Feather name="more-vertical" size={16} color={active ? 'rgba(255,255,255,0.8)' : colors.textMuted} />
+      </View>
+      <View>
+        <Text style={[styles.folderName, { color: active ? '#FFFFFF' : colors.text }]} numberOfLines={1}>{course.nom}</Text>
+        <Text style={[styles.folderCount, { color: active ? 'rgba(255,255,255,0.8)' : colors.textMuted }]}>{n} fichier{n > 1 ? 's' : ''}</Text>
+      </View>
+    </>
+  );
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onClose}
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <View style={{
-          backgroundColor: C.surface,
-          borderRadius: 24,
-          padding: 24,
-          width: '85%',
-          maxWidth: 340,
-          borderWidth: 1,
-          borderColor: C.border,
-        }}>
-          {/* En-tête */}
-          <View style={{ alignItems: 'center', marginBottom: 20 }}>
-            <View style={{
-              width: 64,
-              height: 64,
-              borderRadius: 16,
-              backgroundColor: fileConfig.color + '15',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <Feather name={fileConfig.icon} size={28} color={fileConfig.color} />
-            </View>
-            <Text style={{
-              fontSize: 18,
-              fontWeight: '700',
-              color: C.textPrimary,
-              textAlign: 'center',
-            }}>
-              {file.nom}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-              <Text style={{ fontSize: 12, color: C.textMuted }}>{fileConfig.label}</Text>
-              <Text style={{ fontSize: 12, color: C.textDim }}>•</Text>
-              <Text style={{ fontSize: 12, color: C.textMuted }}>{file.taille}</Text>
-            </View>
-          </View>
-
-          {/* Actions */}
-          <View style={{ gap: 10 }}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={onOpenWith}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: C.accentBg,
-                borderRadius: 14,
-                padding: 14,
-                borderWidth: 1,
-                borderColor: C.accent + '30',
-              }}
-            >
-              <Feather name="eye" size={20} color={C.accentDim} />
-              <Text style={{
-                fontSize: 15,
-                fontWeight: '600',
-                color: C.accentDim,
-                marginLeft: 12,
-              }}>
-                Ouvrir avec
-              </Text>
-              <Feather name="chevron-right" size={18} color={C.accentDim} style={{ marginLeft: 'auto' }} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={onDownload}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: C.surfaceAlt,
-                borderRadius: 14,
-                padding: 14,
-                borderWidth: 1,
-                borderColor: C.border,
-              }}
-            >
-              <Feather name="download" size={20} color={C.textSecondary} />
-              <Text style={{
-                fontSize: 15,
-                fontWeight: '600',
-                color: C.textSecondary,
-                marginLeft: 12,
-              }}>
-                Télécharger
-              </Text>
-              <Feather name="chevron-right" size={18} color={C.textMuted} style={{ marginLeft: 'auto' }} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Bouton fermer */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onClose}
-            style={{
-              marginTop: 16,
-              paddingVertical: 12,
-              borderRadius: 12,
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: C.border,
-            }}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: C.textMuted,
-            }}>
-              Fermer
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={course.nom}>
+      <Animated.View style={{ width: 158, marginRight: 12, transform: [{ scale: s }] }}>
+        <View style={[styles.folderTab, { backgroundColor: active ? BRAND_ORANGE : colors.surfaceElevated, borderColor: colors.border, borderWidth: active ? 0 : StyleSheet.hairlineWidth }]} />
+        {active ? (
+          <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.folderBody}>{inner}</LinearGradient>
+        ) : (
+          <View style={[styles.folderBody, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth }]}>{inner}</View>
+        )}
+      </Animated.View>
+    </Pressable>
   );
 };
 
-// Screen principal
-export const StudentCourseScreen: React.FC = () => {
-  const [refreshing, setRefreshing] = useState(false);
-  const [courses] = useState(MOCK_COURSES);
-  const [selectedFile, setSelectedFile] = useState<CourseFile | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
-
-  const handleFilePress = (file: CourseFile) => {
-    setSelectedFile(file);
-    setModalVisible(true);
-  };
-
-  const handleDownload = async (file: CourseFile) => {
-    try {
-      // Simulation de téléchargement
-      Alert.alert(
-        'Téléchargement',
-        `Téléchargement de "${file.nom}" en cours...`,
-        [{ text: 'OK' }]
-      );
-      // Dans la vraie vie : utiliser FileSystem.downloadAsync
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible de télécharger le fichier');
-    }
-  };
-
-  const handleOpenWith = async (file: CourseFile) => {
-    try {
-      // Simulation d'ouverture
-      Alert.alert(
-        'Ouvrir avec',
-        `Choisissez une application pour ouvrir "${file.nom}"`,
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'PDF Viewer', onPress: () => Alert.alert('Ouverture', `Ouverture de ${file.nom} avec PDF Viewer`) },
-          { text: 'Google Drive', onPress: () => Alert.alert('Ouverture', `Ouverture de ${file.nom} avec Google Drive`) },
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le fichier');
-    }
-  };
-
-  const renderFileItem = (file: CourseFile) => {
-    const fileConfig = FILE_ICONS[file.type] || FILE_ICONS.autre;
-
-    return (
-      <TouchableOpacity
-        key={file.id}
-        activeOpacity={0.7}
-        onPress={() => handleFilePress(file)}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: C.surfaceAlt,
-          borderRadius: 12,
-          padding: 12,
-          marginBottom: 8,
-          borderWidth: 1,
-          borderColor: C.border,
-        }}
-      >
-        <View style={{
-          width: 40,
-          height: 40,
-          borderRadius: 10,
-          backgroundColor: fileConfig.color + '15',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: 12,
-        }}>
-          <Feather name={fileConfig.icon} size={18} color={fileConfig.color} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{
-            fontSize: 14,
-            fontWeight: '600',
-            color: C.textPrimary,
-          }} numberOfLines={1}>
-            {file.nom}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ fontSize: 11, color: C.textMuted }}>{fileConfig.label}</Text>
-            <Text style={{ fontSize: 11, color: C.textDim }}>•</Text>
-            <Text style={{ fontSize: 11, color: C.textMuted }}>{file.taille}</Text>
-          </View>
-        </View>
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-        }}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              setSelectedFile(file);
-              handleDownload(file);
-            }}
-            style={{
-              padding: 6,
-              borderRadius: 8,
-              backgroundColor: C.accentBg,
-            }}
-          >
-            <Feather name="download" size={16} color={C.accentDim} />
-          </TouchableOpacity>
-          <Feather name="chevron-right" size={16} color={C.textMuted} />
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderCourseCard = ({ item }: { item: Course }) => {
-    const hasFiles = item.fichiers && item.fichiers.length > 0;
-
-    return (
-      <View style={{ marginBottom: 16 }}>
-        <Card variant="default" padding="md">
-          {/* En-tête du cours */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>
-                  {item.nom}
-                </Text>
-                {item.coursCount && (
-                  <View style={{
-                    backgroundColor: C.accentBg,
-                    borderRadius: 12,
-                    paddingHorizontal: 8,
-                    paddingVertical: 2,
-                  }}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: C.accentDim }}>
-                      {item.coursCount} cours
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={{ fontSize: 14, color: C.textSecondary, marginTop: 2 }}>
-                {item.professeur}
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Feather name="clock" size={14} color={C.textMuted} />
-                  <Text style={{ fontSize: 12, color: C.textMuted }}>{item.horaire}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Feather name="map-pin" size={14} color={C.textMuted} />
-                  <Text style={{ fontSize: 12, color: C.textMuted }}>{item.salle}</Text>
-                </View>
-              </View>
-            </View>
-            <View style={{
-              backgroundColor: C.accentBg,
-              borderRadius: 8,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-            }}>
-              <Text style={{ fontSize: 12, fontWeight: '700', color: C.accentDim }}>
-                Coef. {item.coefficient}
-              </Text>
-            </View>
-          </View>
-
-          {/* Description */}
-          {item.description && (
-            <Text style={{
-              fontSize: 13,
-              color: C.textSecondary,
-              marginTop: 10,
-              paddingTop: 10,
-              borderTopWidth: 1,
-              borderTopColor: C.border,
-            }}>
-              {item.description}
-            </Text>
-          )}
-
-          {/* Fichiers du cours */}
-          {hasFiles && (
-            <View style={{ marginTop: 12 }}>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 8,
-              }}>
-                <Text style={{
-                  fontSize: 11,
-                  fontWeight: '700',
-                  color: C.textMuted,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.8,
-                }}>
-                  Documents ({item.fichiers.length})
-                </Text>
-                <Text style={{ fontSize: 10, color: C.textMuted }}>
-                  {item.fichiers.reduce((acc, f) => acc + parseFloat(f.taille), 0).toFixed(1)} MB
-                </Text>
-              </View>
-              {item.fichiers.map(renderFileItem)}
-            </View>
-          )}
-
-          {/* Bouton Voir tout */}
-          {hasFiles && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={{
-                marginTop: 8,
-                paddingVertical: 8,
-                alignItems: 'center',
-                backgroundColor: C.surfaceAlt,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: C.border,
-              }}
-            >
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: C.accentDim,
-                letterSpacing: 0.3,
-              }}>
-                Voir tous les documents →
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Statistiques */}
-          <View style={{
-            flexDirection: 'row',
-            marginTop: hasFiles ? 10 : 0,
-            paddingTop: hasFiles ? 10 : 0,
-            borderTopWidth: hasFiles ? 1 : 0,
-            borderTopColor: C.border,
-          }}>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Documents
-              </Text>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>
-                {item.fichiers?.length || 0}
-              </Text>
-            </View>
-            <View style={{ width: 1, backgroundColor: C.border }} />
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Poids total
-              </Text>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: C.textPrimary }}>
-                {item.fichiers ? item.fichiers.reduce((acc, f) => acc + parseFloat(f.taille), 0).toFixed(1) : '0'} MB
-              </Text>
-            </View>
-          </View>
-        </Card>
+/** Fichier = miniature de page */
+const FileThumb = ({ file, width, colors, onPress }: { file: CourseFile; width: number; colors: any; onPress: () => void }) => (
+  <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={{ width, marginBottom: 20 }} accessibilityRole="button" accessibilityLabel={file.nom}>
+    <View style={[styles.page, { height: width * 1.28, backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={styles.pageHead}>
+        <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: '42%', height: 5, borderRadius: 3 }} />
+        <Text style={[styles.pageType, { color: colors.textMuted }]}>{FILE_LABEL[file.type]}</Text>
       </View>
-    );
-  };
+      {LINES.map((w, i) => (
+        <View key={i} style={{ width: w as any, height: 3.5, borderRadius: 2, backgroundColor: colors.border, marginTop: i === 0 ? 12 : 7, opacity: 0.9 }} />
+      ))}
+    </View>
+    <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={2}>{file.nom}</Text>
+    <Text style={[styles.fileMeta, { color: colors.textMuted }]}>{file.taille}</Text>
+  </TouchableOpacity>
+);
+
+// ─── ÉCRAN ────────────────────────────────────────────────────────────────
+export const StudentCourseScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const { width } = useWindowDimensions();
+  const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState(MOCK_COURSES[0].id);
+  const [selectedFile, setSelectedFile] = useState<CourseFile | null>(null);
+
+  const q = query.trim().toLowerCase();
+  const courses = MOCK_COURSES.filter(c =>
+    !q || c.nom.toLowerCase().includes(q) || c.professeur.toLowerCase().includes(q) || c.fichiers.some(x => x.nom.toLowerCase().includes(q)));
+  const course = courses.find(c => c.id === selectedId) || courses[0];
+  const files = course ? course.fichiers.filter(x => !q || x.nom.toLowerCase().includes(q) || course.nom.toLowerCase().includes(q) || course.professeur.toLowerCase().includes(q)) : [];
+  const thumbW = (width - 44 - 24) / 3;
+
+  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); };
+  const download = (file: CourseFile) => Alert.alert('Téléchargement', `Téléchargement de "${file.nom}" en cours...`, [{ text: 'OK' }]);
+  const openWith = (file: CourseFile) => Alert.alert('Ouvrir avec', `Choisissez une application pour ouvrir "${file.nom}"`, [
+    { text: 'Annuler', style: 'cancel' },
+    { text: 'PDF Viewer', onPress: () => Alert.alert('Ouverture', `Ouverture de ${file.nom} avec PDF Viewer`) },
+    { text: 'Google Drive', onPress: () => Alert.alert('Ouverture', `Ouverture de ${file.nom} avec Google Drive`) },
+  ]);
 
   return (
     <Layout variant="default">
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        {/* Header */}
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
         <LinearGradient
-          colors={['#1E1B4B', '#312E81', '#4F46E5']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            paddingTop: 56,
-            paddingBottom: 24,
-            paddingHorizontal: 22,
-            borderBottomLeftRadius: 28,
-            borderBottomRightRadius: 28,
-          }}
+          pointerEvents="none"
+          colors={[`${BRAND_VIOLET}33`, `${BRAND_ORANGE}1A`, 'transparent']}
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.8, y: 1 }}
+          style={[StyleSheet.absoluteFill, { height: 340 }]}
+        />
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 32 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View>
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '700',
-                color: 'rgba(255,255,255,0.5)',
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
-              }}>
-                Élève
-              </Text>
-              <Text style={{
-                fontSize: 24,
-                fontWeight: '700',
-                color: '#FFFFFF',
-                marginTop: 2,
-                letterSpacing: -0.5,
-              }}>
-                Cours & Documents
-              </Text>
+          <View style={{ paddingHorizontal: 22 }}>
+            <TouchableOpacity activeOpacity={0.75} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Retour" style={[styles.backBtn, { backgroundColor: colors.surfaceElevated }]}>
+              <Feather name="arrow-left" size={18} color={colors.text} />
+            </TouchableOpacity>
+
+            <Text style={[styles.title, { color: colors.text }]}>Mes cours</Text>
+
+            <View style={[styles.search, { backgroundColor: colors.surfaceElevated }]}>
+              <Feather name="search" size={17} color={colors.textMuted} />
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Rechercher une matière ou un document"
+                placeholderTextColor={colors.textMuted}
+                style={{ flex: 1, marginLeft: 10, fontSize: 14.5, color: colors.text }}
+              />
+              {!!query && <TouchableOpacity onPress={() => setQuery('')}><Feather name="x" size={16} color={colors.textMuted} /></TouchableOpacity>}
             </View>
-            <View style={{
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              alignItems: 'center',
-            }}>
-              <Text style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.6)',
-                fontWeight: '500',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Total
-              </Text>
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '700',
-                color: '#FFFFFF',
-              }}>
-                {courses.reduce((acc, c) => acc + (c.fichiers?.length || 0), 0)}
-              </Text>
-            </View>
+
+            <Text style={[styles.label, { color: colors.textMuted }]}>MATIÈRES</Text>
           </View>
 
-          {/* Stats */}
-          <View style={{
-            flexDirection: 'row',
-            marginTop: 16,
-          }}>
-            {[
-              { label: 'Matières', value: courses.length.toString(), icon: 'book' },
-              { label: 'Documents', value: courses.reduce((acc, c) => acc + (c.fichiers?.length || 0), 0).toString(), icon: 'file-text' },
-            ].map((stat, index) => (
-              <View key={stat.label} style={{
-                flex: 1,
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                borderRadius: 12,
-                paddingVertical: 10,
-                paddingHorizontal: 14,
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginRight: index === 0 ? 10 : 0,
-              }}>
-                <View style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 8,
-                  backgroundColor: 'rgba(255,255,255,0.08)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 10,
-                }}>
-                  <Feather name={stat.icon as any} size={14} color="rgba(255,255,255,0.6)" />
-                </View>
-                <View>
-                  <Text style={{
-                    fontSize: 9,
-                    color: 'rgba(255,255,255,0.4)',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5,
-                  }}>
-                    {stat.label}
-                  </Text>
-                  <Text style={{
-                    fontSize: 14,
-                    fontWeight: '700',
-                    color: '#FFFFFF',
-                  }}>
-                    {stat.value}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </LinearGradient>
+          {/* Dossiers */}
+          {courses.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 22 }} decelerationRate="fast" snapToInterval={170}>
+              {courses.map(c => <FolderCard key={c.id} course={c} active={c.id === course?.id} onPress={() => setSelectedId(c.id)} colors={colors} />)}
+            </ScrollView>
+          ) : null}
 
-        <FlatList
-          data={courses}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
-          }
-          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-          renderItem={renderCourseCard}
-          ListEmptyComponent={
-            <View style={{
-              padding: 40,
-              alignItems: 'center',
-            }}>
-              <View style={{
-                width: 80,
-                height: 80,
-                borderRadius: 24,
-                backgroundColor: C.accentBg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 16,
-              }}>
-                <Feather name="book-open" size={36} color={C.accentDim} />
+          {course ? (
+            <View key={course.id} style={{ paddingHorizontal: 22 }}>
+              {/* Infos matière */}
+              <FadeIn>
+                <View style={styles.teacherRow}>
+                  <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated }]}>
+                    {course.professeurPhoto
+                      ? <Image source={{ uri: course.professeurPhoto }} style={{ width: 40, height: 40 }} />
+                      : <Text style={{ fontWeight: '700', color: colors.text }}>{course.professeur[0]}</Text>}
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.teacherName, { color: colors.text }]}>{course.professeur}</Text>
+                    <Text style={[styles.teacherMeta, { color: colors.textMuted }]}>{course.horaire}  ·  {course.salle}  ·  Coef. {course.coefficient}</Text>
+                  </View>
+                </View>
+              </FadeIn>
+
+              <View style={styles.sectionRow}>
+                <Text style={[styles.label, { color: colors.textMuted, marginTop: 0 }]}>DOCUMENTS</Text>
+                <Text style={[styles.sectionCount, { color: colors.textMuted }]}>Date  ⌄</Text>
               </View>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>
-                Aucun cours disponible
-              </Text>
-              <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'center', marginTop: 4 }}>
-                Aucun cours n'est disponible pour le moment
-              </Text>
+
+              {files.length > 0 ? (
+                <FadeIn delay={80}>
+                  <View style={styles.grid}>
+                    {files.map(file => <FileThumb key={file.id} file={file} width={thumbW} colors={colors} onPress={() => setSelectedFile(file)} />)}
+                  </View>
+                </FadeIn>
+              ) : (
+                <View style={styles.empty}>
+                  <GradientIcon name="file-text" size={30} />
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun document</Text>
+                </View>
+              )}
             </View>
-          }
-        />
+          ) : (
+            <View style={styles.empty}>
+              <GradientIcon name={query ? 'search' : 'book-open'} size={32} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{query ? 'Aucun résultat' : 'Aucun cours disponible'}</Text>
+            </View>
+          )}
+        </ScrollView>
 
-        {/* Modal d'action fichier */}
-        <FileActionModal
-          visible={modalVisible}
-          file={selectedFile}
-          onClose={() => {
-            setModalVisible(false);
-            setSelectedFile(null);
-          }}
-          onDownload={() => {
-            if (selectedFile) {
-              handleDownload(selectedFile);
-              setModalVisible(false);
-            }
-          }}
-          onOpenWith={() => {
-            if (selectedFile) {
-              handleOpenWith(selectedFile);
-              setModalVisible(false);
-            }
-          }}
-        />
+        {/* ─── Actions fichier ─── */}
+        <Modal visible={!!selectedFile} transparent animationType="fade" onRequestClose={() => setSelectedFile(null)}>
+          <Pressable style={styles.backdrop} onPress={() => setSelectedFile(null)}>
+            {selectedFile && (
+              <Pressable style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.sheetIcon, { backgroundColor: colors.surfaceElevated }]}>
+                  <GradientIcon name="file-text" size={26} />
+                </View>
+                <Text style={[styles.sheetTitle, { color: colors.text }]} numberOfLines={2}>{selectedFile.nom}</Text>
+                <Text style={[styles.sheetMeta, { color: colors.textMuted }]}>{FILE_LABEL[selectedFile.type]}  ·  {selectedFile.taille}  ·  {selectedFile.dateAjout}</Text>
+
+                <TouchableOpacity activeOpacity={0.85} onPress={() => { const x = selectedFile; setSelectedFile(null); openWith(x); }} style={{ marginTop: 22 }}>
+                  <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtn}>
+                    <Feather name="eye" size={18} color="#FFFFFF" />
+                    <Text style={styles.primaryText}>Ouvrir</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => { const x = selectedFile; setSelectedFile(null); download(x); }} style={[styles.secondaryBtn, { backgroundColor: colors.surfaceElevated }]}>
+                  <Feather name="download" size={17} color={colors.text} />
+                  <Text style={[styles.secondaryText, { color: colors.text }]}>Télécharger</Text>
+                </TouchableOpacity>
+              </Pressable>
+            )}
+          </Pressable>
+        </Modal>
       </View>
     </Layout>
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 34, fontWeight: '700', letterSpacing: -1, marginTop: 18 },
+  search: { flexDirection: 'row', alignItems: 'center', height: 48, borderRadius: 24, paddingHorizontal: 16, marginTop: 18 },
+  label: { fontSize: 11.5, fontWeight: '700', letterSpacing: 1.2, marginTop: 28, marginBottom: 14 },
+
+  folderTab: { width: 58, height: 14, borderTopLeftRadius: 10, borderTopRightRadius: 10 },
+  folderBody: { height: 116, borderRadius: 20, borderTopLeftRadius: 0, padding: 16, justifyContent: 'space-between' },
+  folderTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  folderName: { fontSize: 16, fontWeight: '600', letterSpacing: -0.3 },
+  folderCount: { fontSize: 12, marginTop: 3 },
+
+  teacherRow: { flexDirection: 'row', alignItems: 'center', marginTop: 26 },
+  avatar: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  teacherName: { fontSize: 15, fontWeight: '600' },
+  teacherMeta: { fontSize: 12.5, marginTop: 2 },
+
+  sectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 28, marginBottom: 14 },
+  sectionCount: { fontSize: 12.5 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 12 },
+
+  page: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 10, overflow: 'hidden' },
+  pageHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pageType: { fontSize: 8.5, fontWeight: '700', letterSpacing: 0.6 },
+  fileName: { fontSize: 12.5, fontWeight: '600', marginTop: 9, lineHeight: 16 },
+  fileMeta: { fontSize: 11, marginTop: 2 },
+
+  empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', marginTop: 6 },
+
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' },
+  sheet: { width: '86%', maxWidth: 340, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, padding: 24, alignItems: 'center' },
+  sheetIcon: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
+  sheetTitle: { fontSize: 17, fontWeight: '600', textAlign: 'center', marginTop: 14, letterSpacing: -0.3 },
+  sheetMeta: { fontSize: 12.5, marginTop: 5, textAlign: 'center' },
+  primaryBtn: { height: 50, borderRadius: 25, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, width: 260 },
+  primaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  secondaryBtn: { height: 50, borderRadius: 25, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, width: 260, marginTop: 10 },
+  secondaryText: { fontSize: 15, fontWeight: '600' },
+});

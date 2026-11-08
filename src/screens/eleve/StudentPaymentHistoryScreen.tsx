@@ -11,36 +11,11 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Layout } from '../../components/ui/Layout';
-import { Card } from '../../components/ui/Card';
+import { useTheme } from '../../theme';
 
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Payment {
   id: string;
   reference: string;
@@ -53,6 +28,9 @@ interface Payment {
   description?: string;
 }
 
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_PAYMENTS: Payment[] = [
   {
     id: '1',
@@ -90,7 +68,7 @@ const MOCK_PAYMENTS: Payment[] = [
   {
     id: '4',
     reference: 'PAY-2025-004',
-    libelle: 'Frais d\'examen',
+    libelle: "Frais d'examen",
     montant: 50000,
     date: '20 août 2025',
     mode: 'Mobile Money',
@@ -111,78 +89,11 @@ const MOCK_PAYMENTS: Payment[] = [
   },
 ];
 
-const getStatutConfig = (statut: string) => {
-  switch (statut) {
-    case 'VALIDE':
-      return { 
-        label: 'Validé', 
-        color: C.green, 
-        bg: C.greenBg, 
-        icon: 'check-circle' as const,
-      };
-    case 'EN_ATTENTE':
-      return { 
-        label: 'En attente', 
-        color: C.amber, 
-        bg: C.amberBg, 
-        icon: 'clock' as const,
-      };
-    case 'ECHOUE':
-      return { 
-        label: 'Échoué', 
-        color: C.red, 
-        bg: C.redBg, 
-        icon: 'x-circle' as const,
-      };
-    case 'ANNULE':
-      return { 
-        label: 'Annulé', 
-        color: C.textMuted, 
-        bg: C.surfaceAlt, 
-        icon: 'slash' as const,
-      };
-    default:
-      return { 
-        label: 'Inconnu', 
-        color: C.textMuted, 
-        bg: C.surfaceAlt, 
-        icon: 'help-circle' as const,
-      };
-  }
-};
-
-const formatMontant = (montant: number) => {
-  return `${montant.toLocaleString()} FCFA`;
-};
-
-const SectionTitle = ({ children, count }: { children: string; count?: number }) => (
-  <View style={{
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  }}>
-    <Text style={{
-      fontSize: 11,
-      fontWeight: '700',
-      color: C.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 1.2,
-    }}>
-      {children}
-    </Text>
-    {count !== undefined && (
-      <Text style={{
-        fontSize: 11,
-        color: C.textMuted,
-      }}>
-        {count} paiement{count > 1 ? 's' : ''}
-      </Text>
-    )}
-  </View>
-);
-
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const StudentPaymentHistoryScreen: React.FC = () => {
+  const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [payments] = useState(MOCK_PAYMENTS);
   const [filter, setFilter] = useState<'TOUS' | 'VALIDE' | 'EN_ATTENTE' | 'ECHOUE'>('TOUS');
@@ -190,6 +101,21 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  // ─── Configuration du statut ───
+  const getStatutConfig = (statut: string) => {
+    const configs: Record<string, { label: string; color: string; bg: string; icon: keyof typeof Feather.glyphMap }> = {
+      VALIDE: { label: 'Validé', color: colors.success, bg: colors.success + '15', icon: 'check-circle' },
+      EN_ATTENTE: { label: 'En attente', color: colors.warning, bg: colors.warning + '15', icon: 'clock' },
+      ECHOUE: { label: 'Échoué', color: colors.error, bg: colors.error + '15', icon: 'x-circle' },
+      ANNULE: { label: 'Annulé', color: colors.textMuted, bg: colors.surfaceElevated, icon: 'slash' },
+    };
+    return configs[statut] || { label: 'Inconnu', color: colors.textMuted, bg: colors.surfaceElevated, icon: 'help-circle' };
+  };
+
+  const formatMontant = (montant: number) => {
+    return `${montant.toLocaleString()} FCFA`;
   };
 
   const filteredPayments = filter === 'TOUS' 
@@ -204,13 +130,51 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
     totalMontant: payments.filter(p => p.statut === 'VALIDE').reduce((sum, p) => sum + p.montant, 0),
   };
 
+  // ─── Composant SectionTitle ───
+  const SectionTitle = ({ children, count }: { children: string; count?: number }) => (
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    }}>
+      <Text style={{
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.textMuted,
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+      }}>
+        {children}
+      </Text>
+      {count !== undefined && (
+        <Text style={{
+          fontSize: 11,
+          color: colors.textMuted,
+        }}>
+          {count} paiement{count > 1 ? 's' : ''}
+        </Text>
+      )}
+    </View>
+  );
+
+  // ─── Rendu d'une carte de paiement (CARTE CLAIRE) ───
   const renderPaymentCard = ({ item }: { item: Payment }) => {
     const statutConfig = getStatutConfig(item.statut);
     const isSuccess = item.statut === 'VALIDE';
 
     return (
       <View style={{ marginBottom: 12 }}>
-        <Card variant="default" padding="md">
+        {/* ✅ CARTE CLAIRE - remplacement du composant Card */}
+        <View style={{
+          backgroundColor: colors.surface, // ✅ BLANC (#FFFFFF)
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: colors.border, // ✅ BORDURE CLAIRE
+          padding: 16,
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
           {/* Bandeau de statut */}
           <View style={{
             position: 'absolute',
@@ -219,25 +183,27 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
             right: 0,
             height: 3,
             backgroundColor: statutConfig.color,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
           }} />
 
           <View style={{ marginTop: 6 }}>
             {/* En-tête */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}>
               <View style={{ flex: 1 }}>
                 <Text style={{
                   fontSize: 16,
                   fontWeight: '700',
-                  color: C.textPrimary,
+                  color: colors.text, // ✅ TEXTE NOIR
                   letterSpacing: -0.2,
                 }}>
                   {item.libelle}
                 </Text>
                 <Text style={{
                   fontSize: 12,
-                  color: C.textMuted,
+                  color: colors.textMuted,
                   marginTop: 2,
                 }}>
                   Réf: {item.reference}
@@ -269,7 +235,7 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
             <Text style={{
               fontSize: 24,
               fontWeight: '800',
-              color: isSuccess ? C.green : C.textPrimary,
+              color: isSuccess ? colors.success : colors.text,
               marginTop: 8,
               letterSpacing: -0.5,
             }}>
@@ -284,15 +250,15 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
               marginTop: 10,
               paddingTop: 10,
               borderTopWidth: 1,
-              borderTopColor: C.border,
+              borderTopColor: colors.border,
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="calendar" size={14} color={C.textMuted} />
-                <Text style={{ fontSize: 12, color: C.textMuted }}>{item.date}</Text>
+                <Feather name="calendar" size={14} color={colors.textMuted} />
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>{item.date}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Feather name="credit-card" size={14} color={C.textMuted} />
-                <Text style={{ fontSize: 12, color: C.textMuted }}>{item.mode}</Text>
+                <Feather name="credit-card" size={14} color={colors.textMuted} />
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>{item.mode}</Text>
               </View>
             </View>
 
@@ -300,7 +266,7 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
             {item.description && (
               <Text style={{
                 fontSize: 12,
-                color: C.textDim,
+                color: colors.textMuted,
                 marginTop: 8,
                 fontStyle: 'italic',
               }}>
@@ -319,32 +285,33 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
                   marginTop: 8,
                   paddingTop: 8,
                   borderTopWidth: 1,
-                  borderTopColor: C.border,
+                  borderTopColor: colors.border,
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Feather name="file-text" size={14} color={C.textMuted} />
-                  <Text style={{ fontSize: 12, color: C.textMuted }}>
+                  <Feather name="file-text" size={14} color={colors.textMuted} />
+                  <Text style={{ fontSize: 12, color: colors.textMuted }}>
                     Facture {item.facture}
                   </Text>
                 </View>
-                <Feather name="chevron-right" size={16} color={C.textMuted} />
+                <Feather name="chevron-right" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
-        </Card>
+        </View>
       </View>
     );
   };
 
+  // ─── RENDU ───
   return (
     <Layout variant="default">
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-        {/* Header */}
+        {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
         <LinearGradient
-          colors={['#1E1B4B', '#312E81', '#4F46E5']}
+          colors={[colors.primary, colors.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -355,12 +322,16 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
             borderBottomRightRadius: 28,
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
             <View>
               <Text style={{
                 fontSize: 12,
                 fontWeight: '700',
-                color: 'rgba(255,255,255,0.5)',
+                color: 'rgba(255,255,255,0.6)',
                 letterSpacing: 1.5,
                 textTransform: 'uppercase',
               }}>
@@ -377,7 +348,7 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
               </Text>
             </View>
             <View style={{
-              backgroundColor: 'rgba(255,255,255,0.12)',
+              backgroundColor: 'rgba(255,255,255,0.2)',
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 10,
@@ -408,13 +379,13 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
             marginTop: 16,
           }}>
             {[
-              { label: 'Validés', value: stats.valide, color: C.green },
-              { label: 'En attente', value: stats.enAttente, color: C.amber },
-              { label: 'Échoués', value: stats.echoue, color: C.red },
+              { label: 'Validés', value: stats.valide, color: colors.success },
+              { label: 'En attente', value: stats.enAttente, color: colors.warning },
+              { label: 'Échoués', value: stats.echoue, color: colors.error },
             ].map((stat, index) => (
               <View key={stat.label} style={{
                 flex: 1,
-                backgroundColor: 'rgba(255,255,255,0.06)',
+                backgroundColor: 'rgba(255,255,255,0.12)',
                 borderRadius: 12,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
@@ -426,17 +397,19 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
                   width: 28,
                   height: 28,
                   borderRadius: 8,
-                  backgroundColor: stat.color + '25',
+                  backgroundColor: stat.color + '30',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 10,
                 }}>
-                  <Text style={{ fontSize: 12, color: stat.color }}>{stat.value}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                    {stat.value}
+                  </Text>
                 </View>
                 <View>
                   <Text style={{
                     fontSize: 9,
-                    color: 'rgba(255,255,255,0.4)',
+                    color: 'rgba(255,255,255,0.5)',
                     textTransform: 'uppercase',
                     letterSpacing: 0.5,
                   }}>
@@ -448,20 +421,20 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
           </View>
         </LinearGradient>
 
-        {/* Filtres */}
+        {/* ─── FILTRES ─── */}
         <View style={{
-          backgroundColor: C.surface,
+          backgroundColor: colors.surface,
           borderBottomWidth: 1,
-          borderBottomColor: C.border,
+          borderBottomColor: colors.border,
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {[
               { key: 'TOUS', label: 'Tous', count: stats.total },
-              { key: 'VALIDE', label: 'Validés', count: stats.valide, color: C.green },
-              { key: 'EN_ATTENTE', label: 'En attente', count: stats.enAttente, color: C.amber },
-              { key: 'ECHOUE', label: 'Échoués', count: stats.echoue, color: C.red },
+              { key: 'VALIDE', label: 'Validés', count: stats.valide },
+              { key: 'EN_ATTENTE', label: 'En attente', count: stats.enAttente },
+              { key: 'ECHOUE', label: 'Échoués', count: stats.echoue },
             ].map((f) => {
               const isActive = filter === f.key;
               return (
@@ -474,16 +447,16 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
                     paddingVertical: 8,
                     paddingHorizontal: 10,
                     borderRadius: 10,
-                    backgroundColor: isActive ? C.accent : C.surfaceAlt,
+                    backgroundColor: isActive ? colors.primary : colors.surfaceElevated,
                     borderWidth: 1,
-                    borderColor: isActive ? C.accent : C.border,
+                    borderColor: isActive ? colors.primary : colors.border,
                     alignItems: 'center',
                   }}
                 >
                   <Text style={{
                     fontSize: 12,
                     fontWeight: isActive ? '700' : '600',
-                    color: isActive ? '#FFFFFF' : C.textSecondary,
+                    color: isActive ? '#FFFFFF' : colors.textSecondary,
                   }}>
                     {f.label}
                   </Text>
@@ -491,7 +464,7 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
                     fontSize: 9,
                     fontWeight: '500',
                     marginTop: 1,
-                    color: isActive ? 'rgba(255,255,255,0.6)' : C.textMuted,
+                    color: isActive ? 'rgba(255,255,255,0.6)' : colors.textMuted,
                   }}>
                     {f.count}
                   </Text>
@@ -501,12 +474,16 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Liste des paiements */}
+        {/* ─── LISTE DES PAIEMENTS ─── */}
         <FlatList
           data={filteredPayments}
           keyExtractor={(item) => item.id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
           }
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           renderItem={renderPaymentCard}
@@ -524,17 +501,26 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
                 width: 80,
                 height: 80,
                 borderRadius: 24,
-                backgroundColor: C.accentBg,
+                backgroundColor: colors.primaryBg,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 16,
               }}>
-                <Feather name="credit-card" size={36} color={C.accentDim} />
+                <Feather name="credit-card" size={36} color={colors.primary} />
               </View>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: colors.text,
+              }}>
                 Aucun paiement
               </Text>
-              <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'center', marginTop: 4 }}>
+              <Text style={{
+                fontSize: 13,
+                color: colors.textMuted,
+                textAlign: 'center',
+                marginTop: 4,
+              }}>
                 Aucun historique de paiement n'est disponible
               </Text>
             </View>
@@ -548,8 +534,8 @@ export const StudentPaymentHistoryScreen: React.FC = () => {
               marginTop: 8,
               paddingVertical: 12,
             }}>
-              <Feather name="info" size={12} color={C.textMuted} />
-              <Text style={{ fontSize: 10, color: C.textMuted }}>
+              <Feather name="info" size={12} color={colors.textMuted} />
+              <Text style={{ fontSize: 10, color: colors.textMuted }}>
                 {filteredPayments.length} paiement{filteredPayments.length > 1 ? 's' : ''} affiché{filteredPayments.length > 1 ? 's' : ''}
               </Text>
             </View>

@@ -1,507 +1,314 @@
 // screens/parent/ParentHomeScreen.tsx
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  StatusBar,
+  View, Text, ScrollView, RefreshControl, StatusBar, Animated, FlatList, StyleSheet, Pressable, TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useAppStore } from '../../store';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useTheme } from '../../theme';
 
-const COLORS = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  red: '#EF4444',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  textPrimary: '#DDE0ED',
-  textSecondary: '#C0C4D8',
-  textMuted: '#4A5060',
-  textDim: '#3E4458',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#8B5CF6';
+const GRADIENT_BRAND: [string, string] = [BRAND_ORANGE, BRAND_VIOLET];
 
+// ─── DONNÉES ─────────────────────────────────────────────────────────────
 interface DashboardStats {
   notificationsNonLues: number;
-  prochainsCours: any[];
-  dernieresNotes: any[];
-  evenementsRecents: any[];
+  dernieresNotes: { id: string; matiere: string; note: number; date: string }[];
+  evenementsRecents: { id: string; titre: string; date: string; lieu: string }[];
 }
 
 const MOCK_STATS: DashboardStats = {
   notificationsNonLues: 3,
-  prochainsCours: [
-    {
-      id: '1',
-      matiere: 'Mathématiques',
-      professeur: 'M. NGOMA',
-      salle: 'A101',
-      heureDebut: '08:00',
-    },
-  ],
   dernieresNotes: [
     { id: '1', matiere: 'Mathématiques', note: 15, date: '15 oct. 2025' },
     { id: '2', matiere: 'Français', note: 14, date: '14 oct. 2025' },
     { id: '3', matiere: 'Physique-Chimie', note: 17, date: '12 oct. 2025' },
+    { id: '4', matiere: 'Anglais', note: 16, date: '11 oct. 2025' },
+    { id: '5', matiere: 'Histoire', note: 12, date: '10 oct. 2025' },
   ],
   evenementsRecents: [
-    {
-      id: '1',
-      titre: 'Réunion parents-professeurs',
-      date: '25 oct. 2025',
-      lieu: 'Salle polyvalente',
-      color: COLORS.accent,
-    },
-    {
-      id: '2',
-      titre: 'Examens de mi-trimestre',
-      date: '3 nov. 2025',
-      lieu: 'Toutes les salles',
-      color: COLORS.green,
-    },
+    { id: '1', titre: 'Réunion parents-professeurs', date: '25 oct. 2025', lieu: 'Salle polyvalente' },
+    { id: '2', titre: 'Examens de mi-trimestre', date: '3 nov. 2025', lieu: 'Toutes les salles' },
   ],
 };
 
-// ✅ Services pour les parents - avec icônes Feather valides
-// Supprimé: childrenCourses (Cours de mes enfants) et enrollment (Réinscription)
 const PARENT_FEATURES = [
-  { id: 'announcements', label: 'Annonces', icon: 'bell' as const, screen: 'Announcements', color: COLORS.accent },
-  { id: 'schools', label: 'Établissements', icon: 'home' as const, screen: 'SchoolList', color: COLORS.green },
-  { id: 'teachers', label: 'Professeurs', icon: 'users' as const, screen: 'ParentTeachers', color: COLORS.purple },
-  { id: 'messaging', label: 'Messagerie', icon: 'message-circle' as const, screen: 'Messaging', color: COLORS.amber },
+  { id: 'announcements', label: 'Annonces', icon: 'bell' as const, screen: 'Announcements' },
+  { id: 'schools', label: 'Établissements', icon: 'home' as const, screen: 'SchoolList' },
+  { id: 'teachers', label: 'Professeurs', icon: 'users' as const, screen: 'ParentTeachers' },
+  { id: 'messaging', label: 'Messagerie', icon: 'message-circle' as const, screen: 'Messaging' },
 ];
 
-// ✅ Accès rapide existant - avec icônes Feather valides
 const QUICK_ACCESS = [
-  { label: 'Mes enfants', icon: 'users' as const, screen: 'ChildrenList', color: COLORS.blue },
-  { label: 'Paiements', icon: 'credit-card' as const, screen: 'ParentPayments', color: COLORS.green },
-  { label: 'Clubs', icon: 'users' as const, screen: 'ParentClubs', color: COLORS.purple },
-  { label: 'Profil', icon: 'user' as const, screen: 'Profile', color: COLORS.accent },
+  { label: 'Enfants', icon: 'users' as const, screen: 'ChildrenList' },
+  { label: 'Paiements', icon: 'credit-card' as const, screen: 'ParentPayments' },
+  { label: 'Clubs', icon: 'award' as const, screen: 'ParentClubs' },
+  { label: 'Profil', icon: 'user' as const, screen: 'Profile' },
 ];
 
-const GradeBubble = ({ note }: { note: number }) => {
-  const isGood = note >= 15;
-  const isMedium = note >= 10 && note < 15;
-  const bg = isGood ? COLORS.greenBg : isMedium ? COLORS.accentBg : 'rgba(239,68,68,0.10)';
-  const color = isGood ? COLORS.green : isMedium ? COLORS.accentDim : COLORS.red;
+const greeting = () => (new Date().getHours() < 18 ? 'Bonjour,' : 'Bonsoir,');
+
+// ─── ANIMATIONS DISCRÈTES ────────────────────────────────────────────────
+/** Apparition simple : fondu + léger glissement */
+const Reveal = ({ index = 0, children }: { index?: number; children: React.ReactNode }) => {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, { toValue: 1, duration: 450, delay: index * 70, useNativeDriver: true }).start();
+  }, []);
   return (
-    <View style={{
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: bg,
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <Text style={{ color, fontSize: 14, fontWeight: '700' }}>{note}</Text>
+    <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }}>
+      {children}
+    </Animated.View>
+  );
+};
+
+/** Pression : très léger retour d'échelle */
+const Press = ({ onPress, children, style, label }: { onPress?: () => void; children: React.ReactNode; style?: any; label?: string }) => {
+  const s = useRef(new Animated.Value(1)).current;
+  const go = (val: number) => Animated.spring(s, { toValue: val, damping: 16, stiffness: 260, useNativeDriver: true }).start();
+  return (
+    <Pressable onPressIn={() => go(0.96)} onPressOut={() => go(1)} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+      <Animated.View style={[style, { transform: [{ scale: s }] }]}>{children}</Animated.View>
+    </Pressable>
+  );
+};
+
+// ─── TITRE DE SECTION ────────────────────────────────────────────────────
+const SectionTitle = ({ children }: { children: string }) => {
+  const { colors } = useTheme();
+  return <Text style={[styles.sectionTitle, { color: colors.text }]}>{children}</Text>;
+};
+
+// ─── ACCÈS RAPIDE ────────────────────────────────────────────────────────
+const QuickAccessCircle = ({ item, onPress }: { item: (typeof QUICK_ACCESS)[0]; onPress: () => void }) => {
+  const { colors } = useTheme();
+  return (
+    <Press onPress={onPress} label={item.label} style={{ alignItems: 'center', width: 76 }}>
+      <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.qaRing}>
+        <View style={[styles.qaInner, { backgroundColor: colors.surface }]}>
+          <Feather name={item.icon} size={22} color={BRAND_VIOLET} />
+        </View>
+      </LinearGradient>
+      <Text style={[styles.qaLabel, { color: colors.textSecondary }]}>{item.label}</Text>
+    </Press>
+  );
+};
+
+// ─── CARTE NOTE ──────────────────────────────────────────────────────────
+const NoteCard = ({ note }: { note: DashboardStats['dernieresNotes'][0] }) => {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.noteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Text style={[styles.noteSubject, { color: colors.text }]} numberOfLines={1}>{note.matiere}</Text>
+      <Text style={[styles.noteDate, { color: colors.textMuted }]}>{note.date}</Text>
+      <Text style={[styles.noteValue, { color: colors.text }]}>
+        {note.note}
+        <Text style={[styles.noteOutOf, { color: colors.textMuted }]}>/20</Text>
+      </Text>
+      <View style={[styles.noteTrack, { backgroundColor: colors.surfaceElevated }]}>
+        <LinearGradient
+          colors={GRADIENT_BRAND}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{ height: 4, borderRadius: 2, width: `${Math.min(note.note / 20, 1) * 100}%` }}
+        />
+      </View>
     </View>
   );
 };
 
-const SectionTitle = ({ children }: { children: string }) => (
-  <Text style={{
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#7880A0',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginTop: 22,
-    marginBottom: 10,
-  }}>
-    {children}
-  </Text>
-);
-
+// ─── ÉCRAN PRINCIPAL ─────────────────────────────────────────────────────
 export const ParentHomeScreen: React.FC = () => {
-  const { user } = useAppStore();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [stats] = React.useState(MOCK_STATS);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats] = useState(MOCK_STATS);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
-  const navigateTo = (screen: string, params?: any) => {
-    navigation.navigate(screen, params);
-  };
+  const navigateTo = (screen: string, params?: any) => navigation.navigate(screen, params);
 
-  if (!user) return <LoadingSpinner fullScreen />;
-
+  const user = { prenoms: 'Jean', nom: 'Dupont' };
   const initials = `${user.prenoms?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase();
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="light-content" />
 
       <ScrollView
-        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.accent}
-          />
-        }
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* ───── Header ───── */}
-        <View style={{
-          backgroundColor: '#12151E',
-          paddingTop: 56,
-          paddingBottom: 36,
-          paddingHorizontal: 22,
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          <View style={{
-            position: 'absolute',
-            top: -60,
-            right: -60,
-            width: 220,
-            height: 220,
-            backgroundColor: 'rgba(99,102,241,0.06)',
-            borderRadius: 110,
-          }} />
-
-          {/* Top bar */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <Text style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 2.5,
-              color: COLORS.accent,
-              textTransform: 'uppercase',
-            }}>
-              SURYA
-            </Text>
+        {/* ───── BANNIÈRE (dégradé pur, sans décor) ───── */}
+        <LinearGradient
+          colors={GRADIENT_BRAND}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.banner, { paddingTop: insets.top + 18 }]}
+        >
+          <View style={styles.bannerRow}>
+            <View>
+              <Text style={styles.hello}>{greeting()}</Text>
+              <Text style={styles.name}>{user.prenoms}</Text>
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <TouchableOpacity 
-                style={{
-                  width: 40,
-                  height: 40,
-                  backgroundColor: '#161A24',
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onPress={() => navigateTo('Notifications')}
-              >
-                <Feather name="bell" size={18} color="#8088A8" />
-                {stats.notificationsNonLues > 0 && (
-                  <View style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 9,
-                    width: 8,
-                    height: 8,
-                    backgroundColor: COLORS.red,
-                    borderRadius: 4,
-                    borderWidth: 2,
-                    borderColor: '#161A24',
-                  }} />
-                )}
+              <TouchableOpacity activeOpacity={0.75} onPress={() => navigateTo('Notifications')} accessibilityRole="button" accessibilityLabel="Notifications" style={styles.roundBtn}>
+                <Feather name="bell" size={19} color="#FFFFFF" />
+                {stats.notificationsNonLues > 0 && <View style={styles.badge} />}
               </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => navigateTo('Profile')}>
-                <LinearGradient
-                  colors={['#3730A3', '#6366F1']}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#C7D2FE' }}>
-                    {initials}
-                  </Text>
-                </LinearGradient>
+              <TouchableOpacity activeOpacity={0.75} onPress={() => navigateTo('Profile')} accessibilityRole="button" accessibilityLabel="Profil" style={styles.roundBtn}>
+                <Text style={styles.initials}>{initials}</Text>
               </TouchableOpacity>
             </View>
           </View>
+        </LinearGradient>
 
-          <Text style={{ fontSize: 12, color: COLORS.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600' }}>
-            Bonjour,
-          </Text>
-          <Text style={{ fontSize: 22, fontWeight: '700', color: '#E8EAF0', marginTop: 3, letterSpacing: -0.3 }}>
-            {user.prenoms} {user.nom}
-          </Text>
-        </View>
-
-        <View style={{ paddingHorizontal: 16, paddingBottom: 32 }}>
-
-          {/* ───── Prochain cours ───── */}
-          {stats.prochainsCours.length > 0 && (
-            <View style={{
-              backgroundColor: COLORS.surface,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              padding: 16,
-              marginTop: -16,
-              marginBottom: 12,
-            }}>
-              <Text style={{ fontSize: 10, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: '600', marginBottom: 10 }}>
-                Prochain cours
-              </Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ paddingHorizontal: 20 }}>
+          {/* ───── STATS ───── */}
+          <Reveal index={0}>
+            <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+              <View style={styles.statItem}>
+                <Feather name="trending-up" size={18} color={BRAND_VIOLET} />
                 <View>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.2 }}>
-                    {stats.prochainsCours[0].matiere}
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    15<Text style={[styles.statUnit, { color: colors.textMuted }]}>/20</Text>
                   </Text>
-                  <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>
-                    {stats.prochainsCours[0].professeur} · Salle {stats.prochainsCours[0].salle}
-                  </Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Moyenne</Text>
                 </View>
-                <View style={{
-                  backgroundColor: '#1A1D2E',
-                  borderWidth: 1,
-                  borderColor: '#252A40',
-                  borderRadius: 10,
-                  paddingVertical: 7,
-                  paddingHorizontal: 12,
-                }}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.accentDim }}>
-                    {stats.prochainsCours[0].heureDebut}
+              </View>
+
+              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+
+              <View style={styles.statItem}>
+                <Feather name="check-square" size={18} color={BRAND_ORANGE} />
+                <View>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    92<Text style={[styles.statUnit, { color: colors.textMuted }]}>%</Text>
                   </Text>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>Présence</Text>
                 </View>
               </View>
             </View>
-          )}
+          </Reveal>
 
-          {/* ───── Stats rapides ───── */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-            <View style={{
-              flex: 1,
-              backgroundColor: COLORS.surface,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              padding: 16,
-              alignItems: 'center',
-            }}>
-              <View style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                backgroundColor: COLORS.greenBg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}>
-                <Feather name="trending-up" size={18} color={COLORS.green} />
-              </View>
-              <Text style={{ fontSize: 22, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.5 }}>
-                15
-                <Text style={{ fontSize: 14, color: COLORS.textMuted, fontWeight: '400' }}>/20</Text>
-              </Text>
-              <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: '500' }}>
-                Moyenne
-              </Text>
+          {/* ───── ACCÈS RAPIDE ───── */}
+          <Reveal index={1}>
+            <SectionTitle>Accès rapide</SectionTitle>
+            <View style={styles.qaRow}>
+              {QUICK_ACCESS.map((item) => (
+                <QuickAccessCircle key={item.label} item={item} onPress={() => navigateTo(item.screen)} />
+              ))}
             </View>
+          </Reveal>
 
-            <View style={{
-              flex: 1,
-              backgroundColor: COLORS.surface,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              padding: 16,
-              alignItems: 'center',
-            }}>
-              <View style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                backgroundColor: COLORS.accentBg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}>
-                <Feather name="check-square" size={18} color={COLORS.accentDim} />
-              </View>
-              <Text style={{ fontSize: 22, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.5 }}>
-                92
-                <Text style={{ fontSize: 14, color: COLORS.textMuted, fontWeight: '400' }}>%</Text>
-              </Text>
-              <Text style={{ fontSize: 10, color: COLORS.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: '500' }}>
-                Présence
-              </Text>
-            </View>
-          </View>
+          {/* ───── SERVICES ───── */}
+          <Reveal index={2}>
+            <SectionTitle>Services</SectionTitle>
+            <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.servicesCard}>
+              {PARENT_FEATURES.map((item) => (
+                <Press key={item.id} onPress={() => navigateTo(item.screen, { userRole: 'parent' })} label={item.label} style={{ alignItems: 'center' }}>
+                  <Feather name={item.icon} size={22} color="#FFFFFF" />
+                  <Text style={styles.serviceLabel} numberOfLines={1}>{item.label}</Text>
+                </Press>
+              ))}
+            </LinearGradient>
+          </Reveal>
 
-          {/* ───── Accès rapide ───── */}
-          <SectionTitle>Accès rapide</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {QUICK_ACCESS.map((item) => (
-              <TouchableOpacity
-                key={item.label}
-                activeOpacity={0.75}
-                onPress={() => navigateTo(item.screen)}
-                style={{
-                  width: '47.5%',
-                  backgroundColor: COLORS.surface,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  padding: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-              >
-                <View style={{
-                  width: 38, height: 38,
-                  borderRadius: 11,
-                  backgroundColor: item.color + '15',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Feather name={item.icon} size={18} color={item.color} />
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, flexShrink: 1 }}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* ───── Services / Fonctionnalités ───── */}
-          <SectionTitle>Services</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {PARENT_FEATURES.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                activeOpacity={0.75}
-                onPress={() => navigateTo(item.screen, { userRole: 'parent' })}
-                style={{
-                  width: '47.5%',
-                  backgroundColor: COLORS.surface,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  padding: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-              >
-                <View style={{
-                  width: 38, height: 38,
-                  borderRadius: 11,
-                  backgroundColor: item.color + '15',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Feather name={item.icon} size={18} color={item.color} />
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, flexShrink: 1 }}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* ───── Dernières notes ───── */}
+          {/* ───── DERNIÈRES NOTES ───── */}
           {stats.dernieresNotes.length > 0 && (
-            <View style={{ marginBottom: 4 }}>
+            <Reveal index={3}>
               <SectionTitle>Dernières notes</SectionTitle>
-              {stats.dernieresNotes.map((note) => (
-                <View
-                  key={note.id}
-                  style={{
-                    backgroundColor: COLORS.surface,
-                    borderRadius: 13,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    padding: 13,
-                    paddingHorizontal: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 8,
-                  }}
-                >
-                  <View>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#CDD0E0' }}>
-                      {note.matiere}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: '#3E4458', marginTop: 2 }}>
-                      {note.date}
-                    </Text>
-                  </View>
-                  <GradeBubble note={note.note} />
-                </View>
-              ))}
-            </View>
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={stats.dernieresNotes}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => <NoteCard note={item} />}
+                style={{ marginHorizontal: -20 }}
+                contentContainerStyle={{ paddingHorizontal: 20 }}
+              />
+            </Reveal>
           )}
 
-          {/* ───── Événements ───── */}
+          {/* ───── ÉVÉNEMENTS ───── */}
           {stats.evenementsRecents.length > 0 && (
-            <View style={{ marginBottom: 8 }}>
+            <Reveal index={4}>
               <SectionTitle>Événements à venir</SectionTitle>
-              {stats.evenementsRecents.map((event) => (
-                <TouchableOpacity
-                  key={event.id}
-                  activeOpacity={0.7}
-                  style={{
-                    backgroundColor: COLORS.surface,
-                    borderRadius: 13,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    padding: 13,
-                    paddingHorizontal: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginBottom: 8,
-                    gap: 12,
-                  }}
-                >
-                  <View style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    backgroundColor: `${event.color}18`,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    <Feather name="calendar" size={18} color={event.color} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#C0C4D8' }}>
-                      {event.titre}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: '#3E4458', marginTop: 2 }}>
-                      {event.date} · {event.lieu}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-right" size={18} color="#2A2E42" />
-                </TouchableOpacity>
-              ))}
-            </View>
+              {stats.evenementsRecents.map((event, i) => {
+                const [day, month] = event.date.split(' ');
+                return (
+                  <Press key={event.id} style={[styles.eventRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+                    <View style={styles.eventDate}>
+                      <Text style={[styles.eventDay, { color: colors.text }]}>{day}</Text>
+                      <Text style={[styles.eventMonth, { color: BRAND_VIOLET }]}>{month?.replace('.', '')}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.eventTitle, { color: colors.text }]} numberOfLines={1}>{event.titre}</Text>
+                      <Text style={[styles.eventPlaceText, { color: colors.textMuted }]} numberOfLines={1}>{event.lieu}</Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color={colors.textMuted} />
+                  </Press>
+                );
+              })}
+            </Reveal>
           )}
-
         </View>
       </ScrollView>
     </View>
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  banner: { paddingBottom: 64, paddingHorizontal: 22, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
+  bannerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  hello: { fontSize: 14, color: 'rgba(255,255,255,0.8)', letterSpacing: 0.3 },
+  name: { fontSize: 30, fontWeight: '300', color: '#FFFFFF', letterSpacing: -0.8, marginTop: 2 },
+  roundBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  initials: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 },
+  badge: { position: 'absolute', top: 11, right: 12, width: 9, height: 9, borderRadius: 4.5, backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: BRAND_ORANGE },
+
+  statsCard: {
+    flexDirection: 'row', alignItems: 'center', marginTop: -34, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 18, paddingHorizontal: 22,
+    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 3,
+  },
+  statItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  statValue: { fontSize: 22, fontWeight: '600', letterSpacing: -0.5 },
+  statUnit: { fontSize: 13, fontWeight: '400' },
+  statLabel: { fontSize: 11.5, marginTop: 1 },
+  statDivider: { width: StyleSheet.hairlineWidth, height: 34, marginHorizontal: 14 },
+
+  sectionTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.3, marginTop: 32, marginBottom: 16 },
+
+  qaRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  qaRing: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
+  qaInner: { width: 57, height: 57, borderRadius: 28.5, alignItems: 'center', justifyContent: 'center' },
+  qaLabel: { fontSize: 12, fontWeight: '500', marginTop: 9, textAlign: 'center' },
+
+  servicesCard: { flexDirection: 'row', justifyContent: 'space-around', borderRadius: 24, paddingVertical: 22, paddingHorizontal: 8 },
+  serviceLabel: { fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.95)', textAlign: 'center', marginTop: 8 },
+
+  noteCard: { width: 148, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, padding: 16, marginRight: 12 },
+  noteSubject: { fontSize: 13.5, fontWeight: '600' },
+  noteDate: { fontSize: 11, marginTop: 3, marginBottom: 14 },
+  noteValue: { fontSize: 28, fontWeight: '300', letterSpacing: -1 },
+  noteOutOf: { fontSize: 13, fontWeight: '400' },
+  noteTrack: { height: 4, borderRadius: 2, marginTop: 12, overflow: 'hidden' },
+
+  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14 },
+  eventDate: { width: 40, alignItems: 'center' },
+  eventDay: { fontSize: 22, fontWeight: '300', letterSpacing: -0.5 },
+  eventMonth: { fontSize: 10.5, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 1 },
+  eventTitle: { fontSize: 14.5, fontWeight: '600', letterSpacing: -0.1 },
+  eventPlaceText: { fontSize: 12, marginTop: 3 },
+});

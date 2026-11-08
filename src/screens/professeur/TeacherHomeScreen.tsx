@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// screens/professeur/TeacherHomeScreen.tsx
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,38 +7,63 @@ import {
   TouchableOpacity,
   RefreshControl,
   StatusBar,
+  Alert,
+  Animated,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useTheme } from '../../theme';
 
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
+interface TeacherData {
+  nom: string;
+  prenoms: string;
+  matieres: { id: string; nom: string }[];
+  classes: { id: string; nom: string; effectif: number }[];
+  coursAujourdhui: {
+    id: string;
+    matiere: string;
+    classe: string;
+    heureDebut: string;
+    heureFin: string;
+    salle: string;
+    statut: 'EN_COURS' | 'A_VENIR';
+  }[];
+  emploiDuTemps: {
+    jour: string;
+    cours: {
+      id: string;
+      matiere: string;
+      classe: string;
+      heureDebut: string;
+      heureFin: string;
+      salle: string;
+    }[];
+  }[];
+  notificationsNonLues: number;
+  statistiques: {
+    totalEleves: number;
+    moyenneClasses: number;
+  };
+  bulletinsPaie?: {
+    id: string;
+    mois: string;
+    annee: number;
+    montant: number;
+    statut: 'PAYE' | 'EN_ATTENTE' | 'EN_RETARD';
+    dateEmission: string;
+  }[];
+}
 
-const MOCK_TEACHER = {
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
+const MOCK_TEACHER: TeacherData = {
   nom: 'NGOMA',
   prenoms: 'Paul',
   matieres: [
@@ -69,41 +95,222 @@ const MOCK_TEACHER = {
       statut: 'A_VENIR',
     },
   ],
+  emploiDuTemps: [
+    {
+      jour: 'Lundi',
+      cours: [
+        { id: '1', matiere: 'Mathématiques', classe: '3ème A', heureDebut: '08:00', heureFin: '09:30', salle: 'A101' },
+        { id: '2', matiere: 'Physique-Chimie', classe: '4ème B', heureDebut: '10:00', heureFin: '11:30', salle: 'Labo Sciences' },
+        { id: '3', matiere: 'Mathématiques', classe: 'Terminale C', heureDebut: '14:00', heureFin: '15:30', salle: 'A102' },
+      ],
+    },
+    {
+      jour: 'Mardi',
+      cours: [
+        { id: '4', matiere: 'Physique-Chimie', classe: '3ème A', heureDebut: '08:00', heureFin: '09:30', salle: 'Labo Sciences' },
+        { id: '5', matiere: 'Mathématiques', classe: '4ème B', heureDebut: '10:00', heureFin: '11:30', salle: 'A101' },
+      ],
+    },
+    {
+      jour: 'Mercredi',
+      cours: [
+        { id: '6', matiere: 'Mathématiques', classe: '3ème A', heureDebut: '09:00', heureFin: '10:30', salle: 'A101' },
+        { id: '7', matiere: 'Physique-Chimie', classe: 'Terminale C', heureDebut: '11:00', heureFin: '12:30', salle: 'Labo Sciences' },
+      ],
+    },
+    {
+      jour: 'Jeudi',
+      cours: [
+        { id: '8', matiere: 'Mathématiques', classe: '4ème B', heureDebut: '08:00', heureFin: '09:30', salle: 'A101' },
+        { id: '9', matiere: 'Physique-Chimie', classe: '3ème A', heureDebut: '14:00', heureFin: '15:30', salle: 'Labo Sciences' },
+      ],
+    },
+    {
+      jour: 'Vendredi',
+      cours: [
+        { id: '10', matiere: 'Mathématiques', classe: 'Terminale C', heureDebut: '08:00', heureFin: '09:30', salle: 'A102' },
+      ],
+    },
+  ],
   notificationsNonLues: 3,
   statistiques: {
     totalEleves: 84,
     moyenneClasses: 14.5,
   },
+  bulletinsPaie: [
+    {
+      id: '1',
+      mois: 'Janvier',
+      annee: 2025,
+      montant: 450000,
+      statut: 'PAYE',
+      dateEmission: '2025-01-25',
+    },
+    {
+      id: '2',
+      mois: 'Février',
+      annee: 2025,
+      montant: 450000,
+      statut: 'PAYE',
+      dateEmission: '2025-02-25',
+    },
+    {
+      id: '3',
+      mois: 'Mars',
+      annee: 2025,
+      montant: 450000,
+      statut: 'EN_ATTENTE',
+      dateEmission: '2025-03-25',
+    },
+  ],
 };
 
-const QUICK_ACTIONS = [
-  { label: 'Saisir notes',  icon: '✏️', color: C.amber,  bg: C.amberBg  },
-  { label: "Faire l'appel", icon: '✅', color: C.teal,   bg: C.tealBg   },
-  { label: 'Mes classes',   icon: '👥', color: C.purple, bg: C.purpleBg },
-];
+// ─── GRADIENTS TYPES ──────────────────────────────────────────────────────
+const GRADIENT_BRAND: [string, string] = ['#F97316', '#8B5CF6'];
 
-const SectionTitle = ({ children, action, onAction }: {
-  children: string;
-  action?: string;
-  onAction?: () => void;
-}) => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 10 }}>
+// ─── COMPOSANTS ────────────────────────────────────────────────────────
+const SectionTitle = ({ children }: { children: string }) => {
+  const { colors } = useTheme();
+  return (
     <Text style={{
-      fontSize: 11, fontWeight: '700', color: '#7880A0',
-      textTransform: 'uppercase', letterSpacing: 1.2,
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+      marginTop: 22,
+      marginBottom: 12,
     }}>
       {children}
     </Text>
-    {action && (
-      <TouchableOpacity onPress={onAction}>
-        <Text style={{ fontSize: 12, color: C.accentDim, fontWeight: '600' }}>{action}</Text>
-      </TouchableOpacity>
-    )}
-  </View>
-);
+  );
+};
 
+// ─── COMPOSANT CERCLE ORANGE ──────────────────────────────────────────
+const QuickAccessCircle = ({ 
+  item, 
+  onPress 
+}: { 
+  item: { label: string; icon: keyof typeof Feather.glyphMap; color: string; bg: string }; 
+  onPress: () => void;
+}) => {
+  const { colors } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.92,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+      style={{ alignItems: 'center', width: 72 }}
+    >
+      <Animated.View style={{
+        transform: [{ scale: scaleAnim }],
+        alignItems: 'center',
+      }}>
+        <LinearGradient
+          colors={['#F97316', '#FB923C']}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#F97316',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
+        >
+          <Feather name={item.icon} size={24} color="#FFFFFF" />
+        </LinearGradient>
+        <Text style={{
+          fontSize: 11,
+          fontWeight: '500',
+          color: colors.textSecondary,
+          marginTop: 6,
+          textAlign: 'center',
+        }}>
+          {item.label}
+        </Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── COMPOSANT STAT CARD ──────────────────────────────────────────────
+const StatCard = ({ value, label, icon, color }: { 
+  value: string | number; 
+  label: string; 
+  icon: keyof typeof Feather.glyphMap;
+  color: string;
+}) => {
+  const { colors } = useTheme();
+  
+  return (
+    <View style={{
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      alignItems: 'center',
+    }}>
+      <View style={{
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        backgroundColor: color + '20',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+      }}>
+        <Feather name={icon} size={18} color={color} />
+      </View>
+      <Text style={{
+        fontSize: 22,
+        fontWeight: '700',
+        color: colors.text,
+        letterSpacing: -0.5,
+      }}>
+        {value}
+      </Text>
+      <Text style={{
+        fontSize: 10,
+        color: colors.textMuted,
+        marginTop: 2,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+        fontWeight: '500',
+      }}>
+        {label}
+      </Text>
+    </View>
+  );
+};
+
+// ─── SCREEN PRINCIPAL ──────────────────────────────────────────────────
 export const TeacherHomeScreen: React.FC = () => {
+  const { colors } = useTheme();
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [teacher] = useState(MOCK_TEACHER);
 
@@ -112,255 +319,373 @@ export const TeacherHomeScreen: React.FC = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  const navigateTo = (screen: string, params?: any) => {
+    navigation.navigate(screen, params);
+  };
+
+  // ─── Actions rapides ───
+  const QUICK_ACCESS = [
+    { label: 'Saisir notes', icon: 'edit-3' as const, screen: 'TeacherGradeEntry' },
+    { label: "Appel", icon: 'check-square' as const, screen: 'TeacherAttendance' },
+    { label: 'Mes classes', icon: 'users' as const, screen: 'TeacherClasses' },
+    { label: 'Bulletins', icon: 'file-text' as const, screen: 'TeacherPaySlips' },
+  ];
+
+  // ─── Services ───
+  const SERVICES = [
+    { id: 'timetable', label: 'Emploi du temps', icon: 'calendar' as const, screen: 'TeacherTimetable' },
+    { id: 'students', label: 'Élèves', icon: 'users' as const, screen: 'TeacherStudents' },
+    { id: 'messaging', label: 'Messagerie', icon: 'message-circle' as const, screen: 'Messaging' },
+    { id: 'profile', label: 'Profil', icon: 'user' as const, screen: 'Profile' },
+  ];
+
   if (!user) return <LoadingSpinner fullScreen />;
 
   const initials = `${teacher.prenoms[0]}${teacher.nom[0]}`.toUpperCase();
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
       >
-        {/* ───── Header ───── */}
-        <View style={{
-          backgroundColor: '#12151E',
-          paddingTop: 56,
-          paddingBottom: 40,
-          paddingHorizontal: 22,
-          overflow: 'hidden',
-          position: 'relative',
-        }}>
-          <View style={{
-            position: 'absolute', top: -50, right: -50,
-            width: 200, height: 200,
-            backgroundColor: 'rgba(99,102,241,0.06)',
-            borderRadius: 100,
-          }} />
-          <View style={{
-            position: 'absolute', bottom: -30, left: -20,
-            width: 140, height: 140,
-            backgroundColor: 'rgba(45,212,191,0.04)',
-            borderRadius: 70,
-          }} />
-
-          {/* Top bar */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.5, color: C.accent, textTransform: 'uppercase' }}>
-              ✦ SURYA
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              {/* Cloche */}
-              <TouchableOpacity style={{
-                width: 40, height: 40,
-                backgroundColor: '#161A24',
-                borderRadius: 12, borderWidth: 1, borderColor: C.border,
-                alignItems: 'center', justifyContent: 'center',
+        {/* ───── BANNIÈRE ZENITH ───── */}
+        <LinearGradient
+          colors={GRADIENT_BRAND}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            paddingTop: 56,
+            paddingBottom: 28,
+            paddingHorizontal: 22,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: 'rgba(255,255,255,0.6)',
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Accueil
+              </Text>
+              <Text
+                style={{
+                  fontSize: 24,
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                  marginTop: 2,
+                  letterSpacing: -0.5,
+                }}
+              >
+                Bonjour, {teacher.prenoms}
+              </Text>
+              {/* Matières */}
+              <View style={{
+                flexDirection: 'row',
+                gap: 6,
+                marginTop: 8,
+                flexWrap: 'wrap',
               }}>
-                <Text style={{ fontSize: 16, color: '#8088A8' }}>🔔</Text>
+                {teacher.matieres.map((m) => (
+                  <View key={m.id} style={{
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    borderRadius: 6,
+                    paddingVertical: 2,
+                    paddingHorizontal: 8,
+                  }}>
+                    <Text style={{
+                      fontSize: 10,
+                      color: 'rgba(255,255,255,0.8)',
+                      fontWeight: '600',
+                    }}>
+                      {m.nom}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  borderRadius: 12,
+                  padding: 10,
+                }}
+                onPress={() => navigateTo('Notifications')}
+              >
+                <Feather name="bell" size={20} color="#FFFFFF" />
                 {teacher.notificationsNonLues > 0 && (
                   <View style={{
-                    position: 'absolute', top: 8, right: 9,
-                    width: 8, height: 8,
-                    backgroundColor: C.red, borderRadius: 4,
-                    borderWidth: 2, borderColor: '#161A24',
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 10,
+                    height: 10,
+                    backgroundColor: '#EF4444',
+                    borderRadius: 5,
+                    borderWidth: 2,
+                    borderColor: 'rgba(255,255,255,0.8)',
                   }} />
                 )}
               </TouchableOpacity>
-
-              {/* Avatar */}
-              <LinearGradient
-                colors={['#3730A3', '#6366F1']}
-                style={{ width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>{initials}</Text>
-              </LinearGradient>
-            </View>
-          </View>
-
-          {/* Salutation */}
-          <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600' }}>
-            Bonjour,
-          </Text>
-          <Text style={{ fontSize: 22, fontWeight: '700', color: '#E8EAF0', marginTop: 3, letterSpacing: -0.3 }}>
-            {teacher.prenoms} {teacher.nom}
-          </Text>
-
-          {/* Matières pills */}
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            {teacher.matieres.map((m) => (
-              <View key={m.id} style={{
-                backgroundColor: C.accentBg,
-                borderRadius: 8, borderWidth: 1, borderColor: '#252A40',
-                paddingVertical: 4, paddingHorizontal: 10,
-              }}>
-                <Text style={{ fontSize: 11, color: C.accentDim, fontWeight: '600', letterSpacing: 0.3 }}>
-                  {m.nom}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={{ paddingHorizontal: 16, paddingBottom: 36 }}>
-
-          {/* ───── Stats rapides ───── */}
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: -20, marginBottom: 0 }}>
-            {[
-              { icon: '🏫', value: String(teacher.classes.length), label: 'Classes',     color: C.blue,   bg: C.blueBg   },
-              { icon: '👥', value: String(teacher.statistiques.totalEleves), label: 'Élèves', color: C.green,  bg: C.greenBg  },
-              { icon: '📈', value: teacher.statistiques.moyenneClasses.toFixed(1), label: 'Moyenne', color: C.amber, bg: C.amberBg  },
-            ].map((s) => (
-              <View key={s.label} style={{
-                flex: 1,
-                backgroundColor: C.surface,
-                borderRadius: 14, borderWidth: 1, borderColor: C.border,
-                padding: 14, alignItems: 'center',
-              }}>
-                <View style={{
-                  width: 34, height: 34, borderRadius: 10,
-                  backgroundColor: s.bg,
-                  alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-                }}>
-                  <Text style={{ fontSize: 15 }}>{s.icon}</Text>
-                </View>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: s.color, letterSpacing: -0.5 }}>
-                  {s.value}
-                </Text>
-                <Text style={{ fontSize: 10, color: C.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: '500' }}>
-                  {s.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {/* ───── Actions rapides ───── */}
-          <SectionTitle>Actions rapides</SectionTitle>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {QUICK_ACTIONS.map((action) => (
               <TouchableOpacity
-                key={action.label}
-                activeOpacity={0.75}
+                activeOpacity={0.7}
+                onPress={() => navigateTo('Profile')}
                 style={{
-                  flex: 1,
-                  backgroundColor: C.surface,
-                  borderRadius: 14, borderWidth: 1, borderColor: C.border,
-                  padding: 14, alignItems: 'center',
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  borderRadius: 12,
+                  padding: 10,
                 }}
               >
-                <View style={{
-                  width: 42, height: 42, borderRadius: 12,
-                  backgroundColor: action.bg,
-                  alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-                }}>
-                  <Text style={{ fontSize: 18 }}>{action.icon}</Text>
-                </View>
-                <Text style={{ fontSize: 11, fontWeight: '600', color: C.textSecondary, textAlign: 'center' }}>
-                  {action.label}
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+                  {initials}
                 </Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={{ paddingHorizontal: 16, paddingBottom: 32 }}>
+
+          {/* ───── STATS RAPIDES ───── */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <StatCard
+              value={teacher.classes.length}
+              label="Classes"
+              icon="book-open"
+              color={colors.info}
+            />
+            <StatCard
+              value={teacher.statistiques.totalEleves}
+              label="Élèves"
+              icon="users"
+              color={colors.success}
+            />
+            <StatCard
+              value={teacher.statistiques.moyenneClasses.toFixed(1)}
+              label="Moyenne"
+              icon="trending-up"
+              color={colors.warning}
+            />
+          </View>
+
+          {/* ───── ACCÈS RAPIDE (CERCLES ORANGE) ───── */}
+          <SectionTitle>Accès rapide</SectionTitle>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 4 }}>
+            {QUICK_ACCESS.map((item) => (
+              <QuickAccessCircle
+                key={item.label}
+                item={item}
+                onPress={() => navigateTo(item.screen)}
+              />
             ))}
           </View>
 
-          {/* ───── Cours du jour ───── */}
-          <SectionTitle action="Voir tout" onAction={() => {}}>
-            Cours du jour
-          </SectionTitle>
+          {/* ───── SERVICES (CARTE ORANGE PREMIUM) ───── */}
+          <SectionTitle>Services</SectionTitle>
+          <LinearGradient
+            colors={['#F97316', '#FB923C', '#8B5CF6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              borderRadius: 16,
+              padding: 20,
+              shadowColor: '#F97316',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.2,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+              {SERVICES.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.7}
+                  onPress={() => navigateTo(item.screen)}
+                  style={{ alignItems: 'center' }}
+                >
+                  <View style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 6,
+                  }}>
+                    <Feather name={item.icon} size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={{
+                    fontSize: 10,
+                    fontWeight: '500',
+                    color: 'rgba(255,255,255,0.9)',
+                    textAlign: 'center',
+                  }}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </LinearGradient>
 
+          {/* ───── COURS DU JOUR ───── */}
+          <SectionTitle>Cours du jour</SectionTitle>
           {teacher.coursAujourdhui.map((cours) => {
             const enCours = cours.statut === 'EN_COURS';
             return (
-              <View
-                key={cours.id}
-                style={{
-                  backgroundColor: C.surface,
-                  borderRadius: 16, borderWidth: 1,
-                  borderColor: enCours ? `${C.green}30` : C.border,
-                  padding: 16, marginBottom: 10,
-                  position: 'relative', overflow: 'hidden',
-                }}
-              >
-                {/* Barre latérale colorée */}
-                <View style={{
-                  position: 'absolute', left: 0, top: 0, bottom: 0,
-                  width: 3, borderRadius: 3,
-                  backgroundColor: enCours ? C.green : C.accent,
-                }} />
-
-                <View style={{ paddingLeft: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.2 }}>
-                      {cours.matiere}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>
-                      {cours.classe}
-                    </Text>
-                    <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                        <Text style={{ fontSize: 11, color: C.textDim }}>🕐</Text>
-                        <Text style={{ fontSize: 11, color: C.textDim }}>
-                          {cours.heureDebut} – {cours.heureFin}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                        <Text style={{ fontSize: 11, color: C.textDim }}>📍</Text>
-                        <Text style={{ fontSize: 11, color: C.textDim }}>{cours.salle}</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Badge statut */}
-                  <View style={{
-                    backgroundColor: enCours ? C.greenBg : C.accentBg,
-                    borderRadius: 8, borderWidth: 1,
-                    borderColor: enCours ? `${C.green}25` : `${C.accent}25`,
-                    paddingVertical: 4, paddingHorizontal: 10,
-                  }}>
-                    <Text style={{
-                      fontSize: 10, fontWeight: '700',
-                      color: enCours ? C.green : C.accentDim,
-                      textTransform: 'uppercase', letterSpacing: 0.8,
-                    }}>
-                      {enCours ? 'En cours' : 'À venir'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-
-          {/* ───── Mes classes ───── */}
-          <SectionTitle>Mes classes</SectionTitle>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            {teacher.classes.map((cls) => (
               <TouchableOpacity
-                key={cls.id}
-                activeOpacity={0.75}
+                key={cours.id}
+                activeOpacity={0.7}
+                onPress={() => Alert.alert('Cours', `${cours.matiere} - ${cours.classe}`)}
                 style={{
-                  backgroundColor: C.surface,
-                  borderRadius: 12, borderWidth: 1, borderColor: C.border,
-                  paddingVertical: 10, paddingHorizontal: 16,
-                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                  backgroundColor: colors.surface,
+                  borderRadius: 13,
+                  borderWidth: 1,
+                  borderColor: enCours ? `${colors.success}40` : colors.border,
+                  padding: 14,
+                  marginBottom: 8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: '700', color: C.textSecondary }}>
-                  {cls.nom}
-                </Text>
                 <View style={{
-                  backgroundColor: C.purpleBg, borderRadius: 6,
-                  paddingVertical: 2, paddingHorizontal: 7,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: enCours ? `${colors.success}20` : `${colors.primary}20`,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}>
-                  <Text style={{ fontSize: 10, color: C.purple, fontWeight: '700' }}>
-                    {cls.effectif}
+                  <Feather name="clock" size={18} color={enCours ? colors.success : colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: colors.text,
+                  }}>
+                    {cours.matiere}
+                  </Text>
+                  <Text style={{
+                    fontSize: 11,
+                    color: colors.textMuted,
+                    marginTop: 2,
+                  }}>
+                    {cours.classe} · {cours.heureDebut} – {cours.heureFin} · {cours.salle}
+                  </Text>
+                </View>
+                <View style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  backgroundColor: enCours ? `${colors.success}15` : `${colors.primary}15`,
+                  borderWidth: 1,
+                  borderColor: enCours ? `${colors.success}25` : `${colors.primary}25`,
+                }}>
+                  <Text style={{
+                    fontSize: 8,
+                    fontWeight: '700',
+                    color: enCours ? colors.success : colors.primary,
+                  }}>
+                    {enCours ? 'En cours' : 'À venir'}
                   </Text>
                 </View>
               </TouchableOpacity>
-            ))}
-          </View>
+            );
+          })}
+
+          {/* ───── BULLETINS DE PAIE ───── */}
+          {teacher.bulletinsPaie && teacher.bulletinsPaie.length > 0 && (
+            <>
+              <SectionTitle>Bulletins de paie</SectionTitle>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {teacher.bulletinsPaie.slice(0, 2).map((bulletin) => {
+                  const statutConfig = {
+                    PAYE: { label: 'Payé', color: colors.success, bg: `${colors.success}15` },
+                    EN_ATTENTE: { label: 'En attente', color: colors.warning, bg: `${colors.warning}15` },
+                    EN_RETARD: { label: 'En retard', color: colors.error, bg: `${colors.error}15` },
+                  }[bulletin.statut] || { label: bulletin.statut, color: colors.textMuted, bg: colors.surfaceElevated };
+
+                  return (
+                    <TouchableOpacity
+                      key={bulletin.id}
+                      activeOpacity={0.7}
+                      onPress={() => navigateTo('TeacherPaySlips')}
+                      style={{
+                        flex: 1,
+                        backgroundColor: colors.surface,
+                        borderRadius: 13,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        padding: 14,
+                      }}
+                    >
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: 4,
+                      }}>
+                        <Text style={{
+                          fontSize: 13,
+                          fontWeight: '600',
+                          color: colors.text,
+                        }}>
+                          {bulletin.mois} {bulletin.annee}
+                        </Text>
+                        <View style={{
+                          backgroundColor: statutConfig.bg,
+                          borderRadius: 4,
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                        }}>
+                          <Text style={{
+                            fontSize: 8,
+                            fontWeight: '700',
+                            color: statutConfig.color,
+                          }}>
+                            {statutConfig.label}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{
+                        fontSize: 16,
+                        fontWeight: '700',
+                        color: colors.primary,
+                      }}>
+                        {bulletin.montant.toLocaleString()} FCFA
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          )}
 
         </View>
       </ScrollView>

@@ -1,373 +1,303 @@
-// screens/auth/LoginScreen.tsx
-import React, { useState } from 'react';
+// screens/parent/PaymentsScreen.tsx
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
-  TextInput,
-  ActivityIndicator,
+  TouchableOpacity,
   StatusBar,
+  Animated,
+  StyleSheet,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native'; // ✅ Ajout
-import { useAppStore } from '../../store';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderFocus: '#6366F1',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  accentBgFocus: 'rgba(99,102,241,0.07)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.08)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#7C3AED';
+const GRADIENT_BRAND: [string, string] = [BRAND_VIOLET, BRAND_ORANGE];
 
-// ─── Composants ──────────────────────────────────────────────────────────────
-interface SuryaInputProps {
+// ─── TYPES ────────────────────────────────────────────────────────────────
+type PaymentStatus = 'PAYE' | 'EN_ATTENTE' | 'EN_RETARD';
+type PaymentKind = 'SCOLARITE' | 'FOURNITURES' | 'TRANSPORT' | 'CANTINE';
+
+interface Payment {
+  id: string;
+  kind: PaymentKind;
   label: string;
-  placeholder: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  secureTextEntry?: boolean;
-  keyboardType?: any;
-  autoCapitalize?: any;
-  icon: keyof typeof Feather.glyphMap;
-  rightAction?: () => void;
-  rightIcon?: React.ReactNode;
+  childName: string;
+  date: string;
+  amount: number;
+  status: PaymentStatus;
 }
 
-const SuryaInput: React.FC<SuryaInputProps> = ({
-  label,
-  placeholder,
-  value,
-  onChangeText,
-  secureTextEntry,
-  keyboardType,
-  autoCapitalize,
-  icon,
-  rightAction,
-  rightIcon,
-}) => {
-  const [focused, setFocused] = useState(false);
+// ─── MOCK (à remplacer par les vraies données du backend) ─────────────────
+const PARENT_NAME = 'M. Moukoko';
+const SCHOOL_YEAR = '2025-2026';
+const TOTAL_DUE = 1200000; // total annuel à régler, tous enfants confondus
+const ALREADY_PAID = 750000; // cumul déjà réglé sur l'année
+const NEXT_DUE_DATE = '30 nov.';
+const CHILDREN_COUNT = 4;
+
+const MOCK_PAYMENTS: Payment[] = [
+  { id: '1', kind: 'SCOLARITE', label: 'Scolarité · Tranche 2', childName: 'Jean Junior', date: '12 oct.', amount: 150000, status: 'PAYE' },
+  { id: '2', kind: 'FOURNITURES', label: 'Fournitures scolaires', childName: 'Sarah', date: '05 oct.', amount: 35000, status: 'PAYE' },
+  { id: '3', kind: 'SCOLARITE', label: 'Scolarité · Tranche 3', childName: 'Marie Claire', date: '30 nov.', amount: 150000, status: 'EN_ATTENTE' },
+  { id: '4', kind: 'TRANSPORT', label: 'Transport · Trimestre 1', childName: 'David', date: '18 sept.', amount: 45000, status: 'EN_RETARD' },
+  { id: '5', kind: 'CANTINE', label: 'Cantine · Octobre', childName: 'Sarah', date: '02 oct.', amount: 20000, status: 'PAYE' },
+];
+
+const KIND_ICON: Record<PaymentKind, keyof typeof Feather.glyphMap> = {
+  SCOLARITE: 'book-open',
+  FOURNITURES: 'shopping-bag',
+  TRANSPORT: 'truck',
+  CANTINE: 'coffee',
+};
+
+const STATUS_LABEL: Record<PaymentStatus, string> = { PAYE: 'Payé', EN_ATTENTE: 'En attente', EN_RETARD: 'En retard' };
+const STATUS_COLOR: Record<PaymentStatus, string> = { PAYE: '#16A34A', EN_ATTENTE: '#D97706', EN_RETARD: '#DC2626' };
+
+const formatAmount = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+
+// ─── ACTION RAPIDE ───────────────────────────────────────────────────────
+const QuickAction = ({ icon, label, onPress }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void }) => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[styles.action, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.actionIcon}>
+        <Feather name={icon} size={17} color="#FFFFFF" />
+      </LinearGradient>
+      <Text style={[styles.actionLabel, { color: colors.text }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+};
+
+// ─── LIGNE DE TRANSACTION ────────────────────────────────────────────────
+const PaymentRow = ({ item, onPress }: { item: Payment; onPress: () => void }) => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity activeOpacity={0.75} onPress={onPress} accessibilityRole="button" style={styles.row}>
+      <View style={[styles.rowIcon, { backgroundColor: colors.surfaceElevated }]}>
+        <Feather name={KIND_ICON[item.kind]} size={18} color={colors.text} />
+      </View>
+      <View style={{ flex: 1, marginRight: 10 }}>
+        <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{item.label}</Text>
+        <Text style={[styles.rowSub, { color: colors.textMuted }]} numberOfLines={1}>
+          {item.childName} · {item.date}
+        </Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={[styles.rowAmount, { color: colors.text }]}>{formatAmount(item.amount)} F</Text>
+        <Text style={[styles.rowStatus, { color: STATUS_COLOR[item.status] }]}>{STATUS_LABEL[item.status]}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── SCREEN PRINCIPAL ───────────────────────────────────────────────────
+export const PaymentsScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+
+  const payments = MOCK_PAYMENTS;
+  const remaining = Math.max(TOTAL_DUE - ALREADY_PAID, 0);
+  const progress = Math.min(ALREADY_PAID / TOTAL_DUE, 1);
+
+  const fade = useRef(new Animated.Value(0)).current;
+  const lift = useRef(new Animated.Value(16)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.spring(lift, { toValue: 0, damping: 18, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  // TODO : adapter les noms de routes à ta navigation
+  const goPay = () => navigation.navigate('PayFees');
+  const goReceipts = () => navigation.navigate('Receipts');
+  const goSchedule = () => navigation.navigate('PaymentSchedule');
+  const goHistory = () => navigation.navigate('PaymentHistory');
+  const goPayment = (p: Payment) => navigation.navigate('PaymentDetail', { paymentId: p.id });
 
   return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{
-        fontSize: 11,
-        fontWeight: '600',
-        color: focused ? C.accentDim : C.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: 1.1,
-        marginBottom: 8,
-      }}>
-        {label}
-      </Text>
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: focused ? C.accentBgFocus : C.surface,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: focused ? C.borderFocus : C.border,
-        paddingHorizontal: 14,
-        height: 52,
-      }}>
-        <Feather 
-          name={icon} 
-          size={18} 
-          color={focused ? C.accentDim : C.textMuted} 
-          style={{ marginRight: 10 }} 
-        />
-        <TextInput
-          style={{
-            flex: 1,
-            fontSize: 15,
-            color: C.textPrimary,
-            letterSpacing: 0.2,
-            paddingVertical: 0,
-          }}
-          placeholder={placeholder}
-          placeholderTextColor={C.textDim}
-          value={value}
-          onChangeText={onChangeText}
-          secureTextEntry={secureTextEntry}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize ?? 'sentences'}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-        {rightAction && rightIcon && (
-          <TouchableOpacity 
-            onPress={rightAction} 
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.background === '#FFFFFF' ? 'dark-content' : 'light-content'} backgroundColor="transparent" translucent />
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: insets.bottom + 40 }}>
+        {/* ───── EN-TÊTE ───── */}
+        <View style={styles.header}>
+          <View style={styles.hello}>
+            <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.helloRing}>
+              <View style={[styles.helloInner, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.helloInitial, { color: colors.text }]}>{PARENT_NAME.replace('M. ', '')[0]}</Text>
+              </View>
+            </LinearGradient>
+            <View style={{ marginLeft: 12 }}>
+              <Text style={[styles.helloSmall, { color: colors.textMuted }]}>Bonjour</Text>
+              <Text style={[styles.helloName, { color: colors.text }]}>{PARENT_NAME}</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            style={[styles.bell, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
-            {rightIcon}
+            <Feather name="bell" size={18} color={colors.text} />
+            <View style={styles.bellDot} />
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+
+        <Animated.View style={{ opacity: fade, transform: [{ translateY: lift }] }}>
+          {/* ───── CARTE SCOLARITÉ ───── */}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Ma scolarité</Text>
+
+          <View style={styles.cardWrap}>
+            <LinearGradient colors={['#2B2138', '#15101D', '#0A090E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+              {/* brumes de couleur, très discrètes */}
+              <LinearGradient
+                pointerEvents="none"
+                colors={[`${BRAND_ORANGE}40`, `${BRAND_ORANGE}00`]}
+                start={{ x: 1, y: 0 }}
+                end={{ x: 0.35, y: 0.7 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                colors={[`${BRAND_VIOLET}55`, `${BRAND_VIOLET}00`]}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 0.6, y: 0.3 }}
+                style={StyleSheet.absoluteFill}
+              />
+
+              <View style={styles.cardTop}>
+                <Text style={styles.cardBrand}>Zenit · {SCHOOL_YEAR}</Text>
+                <View style={styles.cardPill}>
+                  <Feather name="users" size={12} color="rgba(255,255,255,0.85)" />
+                  <Text style={styles.cardPillText}>{CHILDREN_COUNT} enfants</Text>
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.cardLabel}>Reste à payer</Text>
+                <View style={styles.cardAmountRow}>
+                  <Text style={styles.cardAmount}>{formatAmount(remaining)}</Text>
+                  <Text style={styles.cardCurrency}>FCFA</Text>
+                </View>
+              </View>
+
+              <View>
+                <View style={styles.track}>
+                  <LinearGradient
+                    colors={GRADIENT_BRAND}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.trackFill, { width: `${Math.round(progress * 100)}%` }]}
+                  />
+                </View>
+                <View style={styles.cardBottom}>
+                  <Text style={styles.cardMeta}>{Math.round(progress * 100)} % réglé</Text>
+                  <Text style={styles.cardMeta}>Échéance {NEXT_DUE_DATE}</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* ───── ACTIONS ───── */}
+          <View style={styles.actions}>
+            <QuickAction icon="arrow-up-right" label="Payer" onPress={goPay} />
+            <QuickAction icon="file-text" label="Reçus" onPress={goReceipts} />
+            <QuickAction icon="calendar" label="Échéancier" onPress={goSchedule} />
+          </View>
+
+          {/* ───── TRANSACTIONS ───── */}
+          <View style={styles.listHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 0, paddingHorizontal: 0 }]}>Transactions</Text>
+            <TouchableOpacity onPress={goHistory} activeOpacity={0.7} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={[styles.viewAll, { color: BRAND_VIOLET }]}>Tout voir</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ paddingHorizontal: 20 }}>
+            {payments.map((p) => (
+              <PaymentRow key={p.id} item={p} onPress={() => goPayment(p)} />
+            ))}
+          </View>
+        </Animated.View>
+      </ScrollView>
     </View>
   );
 };
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
-export const LoginScreen: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  
-  // ✅ Navigation
-  const navigation = useNavigation<any>();
-  
-  // ✅ Utilisation directe du store
-  const { login, isLoading } = useAppStore();
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 26 },
+  hello: { flexDirection: 'row', alignItems: 'center' },
+  helloRing: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  helloInner: { width: 43, height: 43, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  helloInitial: { fontSize: 18, fontWeight: '600' },
+  helloSmall: { fontSize: 12.5 },
+  helloName: { fontSize: 16, fontWeight: '600', marginTop: 1, letterSpacing: -0.2 },
+  bell: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  bellDot: { position: 'absolute', top: 12, right: 13, width: 7, height: 7, borderRadius: 3.5, backgroundColor: BRAND_ORANGE },
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Veuillez remplir tous les champs');
-      return;
-    }
-    
-    setError('');
-    
-    try {
-      await login(email, password);
-    } catch (err: any) {
-      setError(err?.message || 'Email ou mot de passe incorrect');
-    }
-  };
+  sectionTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.3, paddingHorizontal: 20, marginBottom: 14 },
 
-  // ✅ Fonction pour naviguer vers ForgotPassword
-  const goToForgotPassword = () => {
-    navigation.navigate('ForgotPassword');
-  };
+  cardWrap: {
+    marginHorizontal: 20,
+    borderRadius: 28,
+    shadowColor: BRAND_VIOLET,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  card: {
+    borderRadius: 28,
+    padding: 22,
+    height: 196,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardBrand: { fontSize: 15, fontWeight: '300', color: 'rgba(255,255,255,0.8)', letterSpacing: 0.4 },
+  cardPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
+  cardPillText: { fontSize: 11.5, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  cardLabel: { fontSize: 12.5, color: 'rgba(255,255,255,0.55)', marginBottom: 4 },
+  cardAmountRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  cardAmount: { fontSize: 38, fontWeight: '300', color: '#FFFFFF', letterSpacing: -1 },
+  cardCurrency: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 7, letterSpacing: 1 },
+  track: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
+  trackFill: { height: 4, borderRadius: 2 },
+  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  cardMeta: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)' },
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1, backgroundColor: C.bg }}
-    >
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+  actions: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginTop: 20, marginBottom: 32 },
+  action: { flex: 1, borderRadius: 22, borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
+  actionIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  actionLabel: { fontSize: 13, fontWeight: '600' },
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 }}>
+  listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 8 },
+  viewAll: { fontSize: 13, fontWeight: '600' },
 
-          {/* ───── Logo & titre ───── */}
-          <View style={{ alignItems: 'center', marginBottom: 48 }}>
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  rowIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  rowTitle: { fontSize: 14.5, fontWeight: '600', letterSpacing: -0.1 },
+  rowSub: { fontSize: 12, marginTop: 3 },
+  rowAmount: { fontSize: 14.5, fontWeight: '600' },
+  rowStatus: { fontSize: 11.5, fontWeight: '600', marginTop: 3 },
+});
 
-            {/* Halo derrière le logo */}
-            <View style={{
-              position: 'absolute',
-              top: -20,
-              width: 160,
-              height: 160,
-              backgroundColor: 'rgba(99,102,241,0.07)',
-              borderRadius: 80,
-            }} />
-
-            {/* Cercle logo */}
-            <View style={{
-              width: 80,
-              height: 80,
-              borderRadius: 24,
-              backgroundColor: C.surface,
-              borderWidth: 1,
-              borderColor: '#252A40',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 20,
-            }}>
-              <LinearGradient
-                colors={['#4F46E5', '#818CF8']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 16,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Feather name="star" size={28} color="#FFFFFF" />
-              </LinearGradient>
-            </View>
-
-            <Text style={{
-              fontSize: 26,
-              fontWeight: '800',
-              color: C.textPrimary,
-              letterSpacing: 6,
-              textTransform: 'uppercase',
-            }}>
-              SURYA
-            </Text>
-            <Text style={{
-              fontSize: 12,
-              color: C.textMuted,
-              marginTop: 6,
-              letterSpacing: 0.4,
-            }}>
-              Système de gestion scolaire
-            </Text>
-          </View>
-
-          {/* ───── Formulaire ───── */}
-          <View style={{
-            backgroundColor: C.surface,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: C.border,
-            padding: 20,
-            marginBottom: 16,
-          }}>
-            <Text style={{
-              fontSize: 15,
-              fontWeight: '700',
-              color: C.textSecondary,
-              marginBottom: 20,
-              letterSpacing: -0.2,
-            }}>
-              Connexion à votre compte
-            </Text>
-
-            <SuryaInput
-              label="Adresse email"
-              placeholder="exemple@surya.edu"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              icon="mail"
-            />
-
-            <SuryaInput
-              label="Mot de passe"
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              icon="lock"
-              rightAction={() => setShowPassword(!showPassword)}
-              rightIcon={
-                <Feather 
-                  name={showPassword ? 'eye-off' : 'eye'} 
-                  size={18} 
-                  color={C.textMuted} 
-                />
-              }
-            />
-
-            {/* Mot de passe oublié - ✅ avec navigation */}
-            <TouchableOpacity 
-              style={{ alignSelf: 'flex-end', marginTop: -4, marginBottom: 20 }}
-              activeOpacity={0.7}
-              onPress={goToForgotPassword} // ✅ Ajout
-            >
-              <Text style={{ fontSize: 12, color: C.accentDim, fontWeight: '600' }}>
-                Mot de passe oublié ?
-              </Text>
-            </TouchableOpacity>
-
-            {/* Erreur */}
-            {error ? (
-              <View style={{
-                backgroundColor: C.redBg,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: 'rgba(239,68,68,0.18)',
-                padding: 12,
-                marginBottom: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}>
-                <Feather name="alert-circle" size={16} color={C.red} />
-                <Text style={{ fontSize: 13, color: C.red, flex: 1, marginLeft: 8 }}>
-                  {error}
-                </Text>
-              </View>
-            ) : null}
-
-            {/* Bouton connexion */}
-            <TouchableOpacity
-              onPress={handleLogin}
-              disabled={isLoading}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={isLoading ? ['#2D2F45', '#2D2F45'] : ['#4F46E5', '#6366F1']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={{
-                  height: 52,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'row',
-                }}
-              >
-                {isLoading ? (
-                  <>
-                    <ActivityIndicator color={C.accentDim} size="small" />
-                    <Text style={{ 
-                      fontSize: 15, 
-                      fontWeight: '700', 
-                      color: C.accentDim, 
-                      letterSpacing: 0.3,
-                      marginLeft: 10,
-                    }}>
-                      Connexion en cours…
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Feather name="log-in" size={18} color="#FFFFFF" />
-                    <Text style={{ 
-                      fontSize: 15, 
-                      fontWeight: '700', 
-                      color: '#FFFFFF', 
-                      letterSpacing: 0.3,
-                      marginLeft: 10,
-                    }}>
-                      Se connecter
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-
-          {/* ───── Version ───── */}
-          <Text style={{
-            textAlign: 'center',
-            fontSize: 11,
-            color: C.textDim,
-            letterSpacing: 0.3,
-            marginTop: 12,
-          }}>
-            SURYA · Version 1.0.0
-          </Text>
-
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-};
+export default PaymentsScreen;

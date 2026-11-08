@@ -14,30 +14,12 @@ import {
 import { MotiView } from 'moti';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme'; // ✅ Thème centralisé
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderFocus: '#6366F1',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  accentBgFocus: 'rgba(99,102,241,0.07)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.08)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
-// ─── Composants ──────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT INPUT PERSONNALISÉ
+// ──────────────────────────────────────────────────────────────
 interface SuryaInputProps {
   label: string;
   placeholder: string;
@@ -61,6 +43,7 @@ const SuryaInput: React.FC<SuryaInputProps> = ({
   rightAction,
   rightIcon,
 }) => {
+  const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
   const hasError = !!error;
 
@@ -69,7 +52,7 @@ const SuryaInput: React.FC<SuryaInputProps> = ({
       <Text style={{
         fontSize: 11,
         fontWeight: '600',
-        color: hasError ? C.red : focused ? C.accentDim : C.textMuted,
+        color: hasError ? colors.error : focused ? colors.primary : colors.textMuted,
         textTransform: 'uppercase',
         letterSpacing: 1.1,
         marginBottom: 8,
@@ -79,29 +62,29 @@ const SuryaInput: React.FC<SuryaInputProps> = ({
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: focused ? C.accentBgFocus : C.surface,
+        backgroundColor: focused ? colors.primaryBg : colors.surfaceElevated,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: hasError ? C.red : focused ? C.borderFocus : C.border,
+        borderColor: hasError ? colors.error : focused ? colors.primary : colors.border,
         paddingHorizontal: 14,
         height: 52,
       }}>
         <Feather 
           name={icon} 
           size={18} 
-          color={hasError ? C.red : focused ? C.accentDim : C.textMuted} 
+          color={hasError ? colors.error : focused ? colors.primary : colors.textMuted} 
           style={{ marginRight: 10 }} 
         />
         <TextInput
           style={{
             flex: 1,
             fontSize: 15,
-            color: C.textPrimary,
+            color: colors.text,
             letterSpacing: 0.2,
             paddingVertical: 0,
           }}
           placeholder={placeholder}
-          placeholderTextColor={C.textDim}
+          placeholderTextColor={colors.textMuted}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry}
@@ -119,22 +102,30 @@ const SuryaInput: React.FC<SuryaInputProps> = ({
       </View>
       {hasError && (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-          <Feather name="alert-circle" size={12} color={C.red} />
-          <Text style={{ fontSize: 11, color: C.red, marginLeft: 4 }}>{error}</Text>
+          <Feather name="alert-circle" size={12} color={colors.error} />
+          <Text style={{ fontSize: 11, color: colors.error, marginLeft: 4 }}>{error}</Text>
         </View>
       )}
     </View>
   );
 };
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// SCREEN PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const ResetPasswordScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const goToLogin = () => {
+    navigation.navigate('Login');
+  };
 
   const handleReset = async () => {
     if (!password || !confirmPassword) {
@@ -159,10 +150,11 @@ export const ResetPasswordScreen: React.FC = () => {
     setIsSuccess(true);
   };
 
+  // ─── ÉTAT SUCCÈS ───
   if (isSuccess) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
           <View style={{ paddingHorizontal: 24, alignItems: 'center' }}>
             <MotiView
@@ -172,7 +164,7 @@ export const ResetPasswordScreen: React.FC = () => {
               style={{ alignItems: 'center' }}
             >
               <LinearGradient
-                colors={['#34D399', '#059669']}
+                colors={[colors.success, colors.success + 'CC']}
                 style={{
                   width: 80,
                   height: 80,
@@ -188,14 +180,14 @@ export const ResetPasswordScreen: React.FC = () => {
               <Text style={{
                 fontSize: 24,
                 fontWeight: '700',
-                color: C.textPrimary,
+                color: colors.text,
                 textAlign: 'center',
               }}>
                 Mot de passe modifié !
               </Text>
               <Text style={{
                 fontSize: 14,
-                color: C.textMuted,
+                color: colors.textMuted,
                 textAlign: 'center',
                 marginTop: 8,
                 lineHeight: 20,
@@ -205,14 +197,20 @@ export const ResetPasswordScreen: React.FC = () => {
 
               <TouchableOpacity
                 activeOpacity={0.8}
+                onPress={goToLogin}
                 style={{
-                  backgroundColor: C.accent,
+                  backgroundColor: colors.primary,
                   borderRadius: 14,
                   paddingHorizontal: 32,
                   paddingVertical: 14,
                   marginTop: 24,
                   flexDirection: 'row',
                   alignItems: 'center',
+                  shadowColor: colors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 12,
+                  elevation: 4,
                 }}
               >
                 <Feather name="log-in" size={18} color="#FFFFFF" />
@@ -232,12 +230,13 @@ export const ResetPasswordScreen: React.FC = () => {
     );
   }
 
+  // ─── RENDU PRINCIPAL ───
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1, backgroundColor: C.bg }}
+      style={{ flex: 1, backgroundColor: colors.background }}
     >
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -246,7 +245,7 @@ export const ResetPasswordScreen: React.FC = () => {
       >
         <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 }}>
 
-          {/* ───── Header ───── */}
+          {/* ───── HEADER ───── */}
           <MotiView
             from={{ opacity: 0, translateY: -20 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -255,6 +254,7 @@ export const ResetPasswordScreen: React.FC = () => {
           >
             <TouchableOpacity 
               activeOpacity={0.7}
+              onPress={goToLogin}
               style={{
                 position: 'absolute',
                 left: 0,
@@ -262,34 +262,34 @@ export const ResetPasswordScreen: React.FC = () => {
                 padding: 8,
               }}
             >
-              <Feather name="arrow-left" size={24} color={C.accentDim} />
+              <Feather name="arrow-left" size={24} color={colors.primary} />
             </TouchableOpacity>
             
             <View style={{
               width: 64,
               height: 64,
               borderRadius: 20,
-              backgroundColor: C.surface,
+              backgroundColor: colors.surface,
               borderWidth: 1,
-              borderColor: C.border,
+              borderColor: colors.border,
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 16,
             }}>
-              <Feather name="lock" size={28} color={C.accentDim} />
+              <Feather name="lock" size={28} color={colors.primary} />
             </View>
             
             <Text style={{
               fontSize: 24,
               fontWeight: '700',
-              color: C.textPrimary,
+              color: colors.text,
               textAlign: 'center',
             }}>
               Nouveau mot de passe
             </Text>
             <Text style={{
               fontSize: 13,
-              color: C.textMuted,
+              color: colors.textMuted,
               textAlign: 'center',
               marginTop: 4,
             }}>
@@ -297,16 +297,16 @@ export const ResetPasswordScreen: React.FC = () => {
             </Text>
           </MotiView>
 
-          {/* ───── Formulaire ───── */}
+          {/* ───── FORMULAIRE ───── */}
           <MotiView
             from={{ opacity: 0, translateX: -20 }}
             animate={{ opacity: 1, translateX: 0 }}
             transition={{ type: 'spring', damping: 20, delay: 200 }}
             style={{
-              backgroundColor: C.surface,
+              backgroundColor: colors.surface,
               borderRadius: 20,
               borderWidth: 1,
-              borderColor: C.border,
+              borderColor: colors.border,
               padding: 20,
               marginBottom: 20,
             }}
@@ -324,7 +324,7 @@ export const ResetPasswordScreen: React.FC = () => {
                 <Feather 
                   name={showPassword ? 'eye-off' : 'eye'} 
                   size={18} 
-                  color={C.textMuted} 
+                  color={colors.textMuted} 
                 />
               }
             />
@@ -340,7 +340,7 @@ export const ResetPasswordScreen: React.FC = () => {
             />
           </MotiView>
 
-          {/* ───── Bouton ───── */}
+          {/* ───── BOUTON ───── */}
           <MotiView
             from={{ opacity: 0, translateY: 20 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -352,7 +352,7 @@ export const ResetPasswordScreen: React.FC = () => {
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={isLoading ? ['#2D2F45', '#2D2F45'] : ['#4F46E5', '#6366F1']}
+                colors={isLoading ? [colors.textMuted, colors.textMuted] : [colors.primary, colors.secondary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{
@@ -365,11 +365,11 @@ export const ResetPasswordScreen: React.FC = () => {
               >
                 {isLoading ? (
                   <>
-                    <ActivityIndicator color={C.accentDim} size="small" />
+                    <ActivityIndicator color="rgba(255,255,255,0.6)" size="small" />
                     <Text style={{ 
                       fontSize: 15, 
                       fontWeight: '700', 
-                      color: C.accentDim, 
+                      color: 'rgba(255,255,255,0.6)', 
                       letterSpacing: 0.3,
                       marginLeft: 10,
                     }}>
@@ -396,11 +396,12 @@ export const ResetPasswordScreen: React.FC = () => {
             {/* Lien retour */}
             <TouchableOpacity 
               activeOpacity={0.7}
+              onPress={goToLogin}
               style={{ marginTop: 16, alignItems: 'center' }}
             >
               <Text style={{ 
                 fontSize: 13, 
-                color: C.accentDim, 
+                color: colors.primary, 
                 fontWeight: '600' 
               }}>
                 Retour à la connexion
@@ -408,15 +409,15 @@ export const ResetPasswordScreen: React.FC = () => {
             </TouchableOpacity>
           </MotiView>
 
-          {/* ───── Version ───── */}
+          {/* ───── VERSION ───── */}
           <Text style={{
             textAlign: 'center',
             fontSize: 11,
-            color: C.textDim,
+            color: colors.textMuted,
             letterSpacing: 0.3,
             marginTop: 24,
           }}>
-            SURYA · Version 1.0.0
+            ZENITH · Version 1.0.0
           </Text>
 
         </View>

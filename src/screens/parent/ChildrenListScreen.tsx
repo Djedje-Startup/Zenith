@@ -1,674 +1,329 @@
 // screens/parent/ChildrenListScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  Image,
+  ScrollView,
   TouchableOpacity,
-  RefreshControl,
   StatusBar,
   Animated,
+  StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../hooks/useAuth';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Avatar } from '../../components/ui/Avatar';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { EmptyState } from '../../components/animations/EmptyState';
+import { useTheme } from '../../theme';
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#7C3AED';
+const GRADIENT_BRAND: [string, string] = [BRAND_VIOLET, BRAND_ORANGE];
+const INK = '#16131F';
+// Fonds des avatars : teintes très claires de la marque
+const PASTELS = ['#EDE4FF', '#FFE4CC'];
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── TYPES ────────────────────────────────────────────────────────────────
 interface Child {
   id: string;
   nom: string;
   prenoms: string;
-  photo?: string;
   classe: string;
   matricule: string;
   schoolName: string;
+  photo?: string; // URL http(s) de la photo de l'enfant
   moyenne?: number;
   statut: 'ACTIF' | 'INACTIF' | 'SUSPENDU';
   tauxPresence?: number;
   anneeScolaire?: string;
-  peutReinscrire?: boolean;
 }
 
-// ─── Mock data ──────────────────────────────────────────────────────────────
-const CURRENT_YEAR = '2025-2026';
-
+// ─── MOCK (à remplacer par les vraies données ; `photo` = URL fournie par le backend) ───
 const MOCK_CHILDREN: Child[] = [
-  {
-    id: '1',
-    nom: 'MOUKOKO',
-    prenoms: 'Jean Junior',
-    classe: '3ème A',
-    matricule: 'LMB-2025-001',
-    schoolName: 'Lycée Moderne',
-    moyenne: 15.5,
-    statut: 'ACTIF',
-    tauxPresence: 92,
-    anneeScolaire: CURRENT_YEAR,
-    peutReinscrire: false,
-  },
-  {
-    id: '2',
-    nom: 'MOUKOKO',
-    prenoms: 'Marie Claire',
-    classe: '5ème B',
-    matricule: 'CSJ-2025-042',
-    schoolName: 'Collège Saint Joseph',
-    moyenne: 17.2,
-    statut: 'ACTIF',
-    tauxPresence: 88,
-    anneeScolaire: '2024-2025',
-    peutReinscrire: true,
-  },
-  {
-    id: '3',
-    nom: 'MOUKOKO',
-    prenoms: 'David',
-    classe: '1ère C',
-    matricule: 'LMB-2025-089',
-    schoolName: 'Lycée Moderne',
-    moyenne: 12.8,
-    statut: 'SUSPENDU',
-    tauxPresence: 65,
-    anneeScolaire: '2024-2025',
-    peutReinscrire: false,
-  },
+  { id: '1', nom: 'MOUKOKO', prenoms: 'Jean Junior', classe: '3ème A', matricule: 'LMB-2025-001', schoolName: 'Lycée Moderne', photo: 'https://i.pravatar.cc/500?img=12', moyenne: 15.5, statut: 'ACTIF', tauxPresence: 92, anneeScolaire: '2025-2026' },
+  { id: '2', nom: 'MOUKOKO', prenoms: 'Marie Claire', classe: '5ème B', matricule: 'CSJ-2025-042', schoolName: 'Collège Saint Joseph', photo: 'https://i.pravatar.cc/500?img=47', moyenne: 17.2, statut: 'ACTIF', tauxPresence: 88, anneeScolaire: '2025-2026' },
+  { id: '3', nom: 'MOUKOKO', prenoms: 'David', classe: '1ère C', matricule: 'LMB-2025-089', schoolName: 'Lycée Moderne', photo: 'https://i.pravatar.cc/500?img=15', moyenne: 12.8, statut: 'SUSPENDU', tauxPresence: 65, anneeScolaire: '2024-2025' },
+  { id: '4', nom: 'MOUKOKO', prenoms: 'Sarah', classe: '6ème A', matricule: 'LMB-2025-123', schoolName: 'Lycée Moderne', photo: 'https://i.pravatar.cc/500?img=32', moyenne: 16.8, statut: 'ACTIF', tauxPresence: 95, anneeScolaire: '2025-2026' },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-const getStatutConfig = (statut: string) => {
-  switch (statut) {
-    case 'ACTIF':
-      return { label: 'Actif', color: C.green, bg: C.greenBg, icon: 'check-circle' as const };
-    case 'INACTIF':
-      return { label: 'Inactif', color: C.textMuted, bg: C.textDim + '30', icon: 'clock' as const };
-    case 'SUSPENDU':
-      return { label: 'Suspendu', color: C.amber, bg: C.amberBg, icon: 'alert-triangle' as const };
-    default:
-      return { label: statut, color: C.red, bg: C.redBg, icon: 'x-circle' as const };
-  }
-};
+const STATUT_LABEL: Record<Child['statut'], string> = { ACTIF: 'Actif', SUSPENDU: 'Suspendu', INACTIF: 'Inactif' };
+const STATUT_COLOR: Record<Child['statut'], string> = { ACTIF: '#16A34A', SUSPENDU: '#DC2626', INACTIF: '#D97706' };
 
-const getGradeColor = (note: number) => {
-  if (note >= 16) return C.green;
-  if (note >= 14) return C.blue;
-  if (note >= 12) return C.accent;
-  if (note >= 10) return C.amber;
-  return C.red;
-};
+const initialsOf = (c: Child) =>
+  `${c.prenoms} ${c.nom}`.split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase();
 
-// ─── Child Card ─────────────────────────────────────────────────────────────
-const ChildCard = ({ child, index }: { child: Child; index: number }) => {
-  const navigation = useNavigation<any>();
-  const statutConfig = getStatutConfig(child.statut);
-  const fullName = `${child.prenoms} ${child.nom}`;
-  const gradeColor = child.moyenne !== undefined ? getGradeColor(child.moyenne) : C.textMuted;
-  const isActive = child.statut === 'ACTIF';
-  const canReinscrire = child.peutReinscrire || false;
-
-  // Animation
-  const translateY = useRef(new Animated.Value(15)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 25,
-        delay: index * 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 300,
-        delay: index * 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  const navigateTo = (screen: string, params?: any) => {
-    navigation.navigate(screen, params);
-  };
-
-  const handleReinscription = () => {
-    if (canReinscrire) {
-      navigation.navigate('EnrollmentForm', { childId: child.id, childName: fullName });
-    }
-  };
-
+// ─── AVATAR (photo, repli sur les initiales si l'image ne charge pas) ───
+const Avatar = ({ child, size, tint, selected = false }: { child: Child; size: number; tint: string; selected?: boolean }) => {
+  const { colors } = useTheme();
+  const [failed, setFailed] = useState(false);
+  const outer = size + 12;
   return (
-    <Animated.View
-      style={{
-        opacity: opacity,
-        transform: [{ translateY: translateY }],
-        marginBottom: 16,
-      }}
-    >
-      <Card
-        variant="default"
-        padding="md"
-        glow={isActive}
-        borderGlow={isActive}
-      >
-        {/* Bandeau supérieur */}
-        <LinearGradient
-          colors={[isActive ? C.green + '60' : statutConfig.color + '40', 'transparent']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 2.5,
-          }}
-        />
-
-        {/* Contenu principal */}
-        <View style={{ paddingTop: 4 }}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigateTo('ChildDetail', { childId: child.id })}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {/* Avatar */}
-              <Avatar
-                source={child.photo}
-                name={fullName}
-                size="lg"
-                gradient
-                ring={isActive}
-                ringColor={isActive ? C.green : C.textMuted}
-              />
-
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                {/* Nom et statut */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text
-                    style={{
-                      flex: 1,
-                      fontSize: 16,
-                      fontWeight: '700',
-                      color: isActive ? C.textPrimary : C.textMuted,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {fullName}
-                  </Text>
-                  <Badge
-                    text={`${statutConfig.label}`}
-                    variant={child.statut === 'ACTIF' ? 'success' : child.statut === 'SUSPENDU' ? 'warning' : 'default'}
-                    size="sm"
-                  />
-                </View>
-
-                {/* Classe et école */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                  <Text style={{ fontSize: 14, color: C.textSecondary }}>
-                    {child.classe}
-                  </Text>
-                  <View
-                    style={{
-                      width: 3,
-                      height: 3,
-                      borderRadius: 1.5,
-                      backgroundColor: C.textMuted,
-                    }}
-                  />
-                  <Text style={{ fontSize: 12, color: C.textMuted }}>
-                    {child.schoolName}
-                  </Text>
-                </View>
-
-                {/* Matricule */}
-                <Text style={{ fontSize: 12, marginTop: 2, color: C.textDim }}>
-                  Matricule: {child.matricule}
-                </Text>
-
-                {/* Année scolaire */}
-                {child.anneeScolaire && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                    <Feather name="calendar" size={10} color={C.textMuted} />
-                    <Text style={{ fontSize: 10, color: C.textMuted }}>
-                      {child.anneeScolaire}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Moyenne */}
-              {child.moyenne !== undefined && (
-                <View
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 24,
-                    backgroundColor: gradeColor + '12',
-                    borderWidth: 1.5,
-                    borderColor: gradeColor + '30',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '700',
-                      color: gradeColor,
-                      letterSpacing: -0.5,
-                    }}
-                  >
-                    {child.moyenne.toFixed(1)}
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 8,
-                      fontWeight: '600',
-                      color: gradeColor + '80',
-                    }}
-                  >
-                    /20
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Statistiques */}
-            <View
-              style={{
-                flexDirection: 'row',
-                marginTop: 14,
-                paddingTop: 14,
-                borderTopWidth: 1,
-                borderTopColor: C.border,
-              }}
-            >
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Feather name="users" size={12} color={C.textMuted} />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
-                    {child.tauxPresence || 0}%
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
-                  Présence
-                </Text>
-              </View>
-
-              <View
-                style={{
-                  width: 1,
-                  height: 24,
-                  backgroundColor: C.border,
-                }}
-              />
-
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Feather name="book" size={12} color={C.textMuted} />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
-                    12
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
-                  Matières
-                </Text>
-              </View>
-
-              <View
-                style={{
-                  width: 1,
-                  height: 24,
-                  backgroundColor: C.border,
-                }}
-              />
-
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Feather name="calendar" size={12} color={C.textMuted} />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary }}>
-                    5
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 9, marginTop: 2, color: C.textMuted }}>
-                  Évaluations
-                </Text>
-              </View>
-            </View>
-
-            {/* Indicateur "Cliquer pour voir plus" */}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 12,
-                paddingTop: 10,
-                borderTopWidth: 1,
-                borderTopColor: C.border,
-              }}
-            >
-              <Feather name="chevron-right" size={14} color={C.textMuted} />
-              <Text
-                style={{
-                  fontSize: 10,
-                  color: C.textMuted,
-                  marginLeft: 4,
-                  letterSpacing: 0.3,
-                }}
-              >
-                Voir le détail
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* ─── Bouton Réinscription ─── */}
-          <View
-            style={{
-              marginTop: 12,
-              paddingTop: 12,
-              borderTopWidth: 1,
-              borderTopColor: C.border,
-            }}
-          >
-            <TouchableOpacity
-              activeOpacity={canReinscrire ? 0.8 : 1}
-              onPress={handleReinscription}
-              disabled={!canReinscrire}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                paddingVertical: 10,
-                borderRadius: 12,
-                backgroundColor: canReinscrire ? C.accent : C.surfaceAlt,
-                borderWidth: 1,
-                borderColor: canReinscrire ? C.accent : C.border,
-                opacity: canReinscrire ? 1 : 0.5,
-              }}
-            >
-              <Feather
-                name="edit-2"
-                size={16}
-                color={canReinscrire ? '#FFFFFF' : C.textMuted}
-              />
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: canReinscrire ? '#FFFFFF' : C.textMuted,
-                  letterSpacing: 0.2,
-                }}
-              >
-                {canReinscrire ? 'Réinscrire' : 'Année en cours'}
-              </Text>
-              {!canReinscrire && (
-                <View
-                  style={{
-                    backgroundColor: C.textDim + '40',
-                    borderRadius: 4,
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 8,
-                      fontWeight: '600',
-                      color: C.textMuted,
-                    }}
-                  >
-                    ACTIF
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Card>
-    </Animated.View>
-  );
-};
-
-// ─── Header ─────────────────────────────────────────────────────────────────
-const Header = ({ children, count }: { children: string; count: number }) => {
-  const { user } = useAuth();
-  const initials = `${user?.prenoms?.[0] ?? ''}${user?.nom?.[0] ?? ''}`.toUpperCase();
-
-  return (
-    <View
-      style={{
-        backgroundColor: C.surface,
-        paddingTop: 56,
-        paddingBottom: 28,
-        paddingHorizontal: 22,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      {/* Halos décoratifs */}
-      <View
-        style={{
-          position: 'absolute',
-          top: -50,
-          right: -50,
-          width: 200,
-          height: 200,
-          backgroundColor: 'rgba(99,102,241,0.06)',
-          borderRadius: 100,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          bottom: -30,
-          left: -20,
-          width: 140,
-          height: 140,
-          backgroundColor: 'rgba(167,139,250,0.05)',
-          borderRadius: 70,
-        }}
-      />
-
-      {/* Top bar */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            style={{
-              width: 40,
-              height: 40,
-              backgroundColor: C.surfaceAlt,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: C.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="arrow-left" size={20} color={C.textSecondary} />
-          </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 2.5,
-              color: C.accent,
-              textTransform: 'uppercase',
-            }}
-          >
-            SURYA
-          </Text>
-        </View>
-
-        <LinearGradient
-          colors={['#3730A3', '#6366F1']}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 13,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>
-            {initials}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Titre */}
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: '700',
-          color: '#E8EAF0',
-          letterSpacing: -0.3,
-        }}
-      >
-        {children}
-      </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 0.2 }}>
-          {count} enfant{count > 1 ? 's' : ''} inscrit{count > 1 ? 's' : ''}
-        </Text>
-        {count > 0 && (
-          <View
-            style={{
-              width: 4,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: C.green,
-            }}
+    <View style={{ width: outer, height: outer, borderRadius: outer / 2, alignItems: 'center', justifyContent: 'center' }}>
+      {selected && (
+        <>
+          <LinearGradient
+            colors={GRADIENT_BRAND}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: outer / 2 }]}
           />
+          <View style={{ position: 'absolute', top: 2.5, left: 2.5, right: 2.5, bottom: 2.5, borderRadius: outer / 2, backgroundColor: colors.background }} />
+        </>
+      )}
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: tint, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+        {child.photo && !failed ? (
+          <Image source={{ uri: child.photo }} style={{ width: size, height: size }} resizeMode="cover" onError={() => setFailed(true)} />
+        ) : (
+          <Text style={{ color: INK, fontWeight: '700', fontSize: size * 0.34 }}>{initialsOf(child)}</Text>
         )}
       </View>
     </View>
   );
 };
 
-// ─── Screen ─────────────────────────────────────────────────────────────────
+const StatusPill = ({ statut }: { statut: Child['statut'] }) => (
+  <View style={styles.pill}>
+    <View style={[styles.pillDot, { backgroundColor: STATUT_COLOR[statut] }]} />
+    <Text style={styles.pillText}>{STATUT_LABEL[statut]}</Text>
+  </View>
+);
+
+const Stat = ({ label, value }: { label: string; value: string }) => (
+  <View style={{ flex: 1, alignItems: 'center' }}>
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
+
+// ─── SCREEN PRINCIPAL ───────────────────────────────────────────────────
 export const ChildrenListScreen: React.FC = () => {
-  const { user } = useAuth();
-  const [children, setChildren] = useState(MOCK_CHILDREN);
-  const [refreshing, setRefreshing] = useState(false);
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const { width, height } = useWindowDimensions();
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+  const [children] = useState(MOCK_CHILDREN);
+  const [selectedId, setSelectedId] = useState(MOCK_CHILDREN[0]?.id);
 
-  if (!user) return <LoadingSpinner fullScreen />;
+  const selectedIndex = Math.max(0, children.findIndex((c) => c.id === selectedId));
+  const selected = children[selectedIndex];
+  const tint = PASTELS[selectedIndex % PASTELS.length];
+  const single = children.length === 1;
 
-  const activeCount = children.filter(c => c.statut === 'ACTIF').length;
+  // Transition douce quand on change d'enfant
+  const fade = useRef(new Animated.Value(0)).current;
+  const lift = useRef(new Animated.Value(14)).current;
+  useEffect(() => {
+    fade.setValue(0);
+    lift.setValue(14);
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 320, useNativeDriver: true }),
+      Animated.spring(lift, { toValue: 0, damping: 18, useNativeDriver: true }),
+    ]).start();
+  }, [selectedId]);
 
-  if (children.length === 0) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
-        <Header children="Mes enfants" count={0} />
-        <View style={{ flex: 1, justifyContent: 'center' }}>
-          <EmptyState
-            title="Aucun enfant"
-            description="Vous n'avez pas encore d'enfant inscrit dans l'application"
-            icon="users"
-            actionLabel="Ajouter un enfant"
-            onAction={() => {}}
-          />
+  const openProfile = (c: Child) => navigation.navigate('ChildDetail', { childId: c.id });
+
+  if (!selected) return null;
+
+  const colW = (width - 40) / 4;
+  const moyenne = selected.moyenne !== undefined ? selected.moyenne.toFixed(1) : '—';
+
+  // ─── EN-TÊTE sobre ───
+  const header = (
+    <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+      <View>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Mes enfants</Text>
+        <Text style={[styles.headerSub, { color: colors.textMuted }]}>
+          {children.length} enfant{children.length > 1 ? 's' : ''} inscrit{children.length > 1 ? 's' : ''}
+        </Text>
+        <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.headerBar} />
+      </View>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="Retour"
+        style={[styles.backBtn, { backgroundColor: colors.surfaceElevated }]}
+      >
+        <Feather name="arrow-left" size={18} color={colors.text} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderProfileButton = (onCard: boolean) => (
+    <TouchableOpacity activeOpacity={0.88} onPress={() => openProfile(selected)} accessibilityRole="button">
+      {onCard ? (
+        <View style={[styles.profileBtn, { backgroundColor: '#FFFFFF' }]}>
+          <Text style={[styles.profileBtnText, { color: INK }]}>Voir le profil</Text>
+          <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.profileArrow}>
+            <Feather name="arrow-right" size={15} color="#FFFFFF" />
+          </LinearGradient>
         </View>
+      ) : (
+        <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.profileBtn}>
+          <Text style={styles.profileBtnText}>Voir le profil</Text>
+          <Feather name="arrow-right" size={16} color="#FFFFFF" />
+        </LinearGradient>
+      )}
+    </TouchableOpacity>
+  );
+
+  // ─── UN SEUL ENFANT : grande photo au centre ───
+  if (single) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle={colors.background === '#FFFFFF' ? 'dark-content' : 'light-content'} />
+        {header}
+        <Animated.View style={[styles.singleWrap, { opacity: fade, transform: [{ translateY: lift }] }]}>
+          <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.singleRing}>
+            <View style={[styles.singlePhoto, { backgroundColor: tint }]}>
+              {selected.photo ? (
+                <Image source={{ uri: selected.photo }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              ) : (
+                <Text style={{ color: INK, fontSize: 64, fontWeight: '700' }}>{initialsOf(selected)}</Text>
+              )}
+            </View>
+          </LinearGradient>
+
+          <Text style={[styles.singleName, { color: colors.text }]}>{selected.prenoms} {selected.nom}</Text>
+          <Text style={[styles.singleMeta, { color: colors.textMuted }]}>
+            {selected.classe} · {selected.schoolName}
+          </Text>
+
+          <View style={[styles.singleStats, { backgroundColor: colors.surfaceElevated }]}>
+            <View style={[styles.statCol]}><Text style={[styles.statValue, { color: colors.text }]}>{moyenne}</Text><Text style={[styles.statLabel, { color: colors.textMuted }]}>Moyenne</Text></View>
+            <View style={[styles.statCol]}><Text style={[styles.statValue, { color: colors.text }]}>{selected.tauxPresence ?? 0}%</Text><Text style={[styles.statLabel, { color: colors.textMuted }]}>Présence</Text></View>
+            <View style={[styles.statCol]}><Text style={[styles.statValue, { color: STATUT_COLOR[selected.statut] }]}>{STATUT_LABEL[selected.statut]}</Text><Text style={[styles.statLabel, { color: colors.textMuted }]}>Statut</Text></View>
+          </View>
+
+          <View style={{ width: '100%', marginTop: 24 }}>{renderProfileButton(false)}</View>
+        </Animated.View>
       </View>
     );
   }
 
+  // ─── PLUSIEURS ENFANTS : carte en haut + grille de photos ───
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.background === '#FFFFFF' ? 'dark-content' : 'light-content'} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+        {header}
 
-      <FlatList
-        data={children}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => <ChildCard child={item} index={index} />}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: 32,
-        }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
-        }
-        ListHeaderComponent={() => (
-          <Header children="Mes enfants" count={children.length} />
-        )}
-        ListFooterComponent={() => (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={{
-              backgroundColor: C.surface,
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: C.border,
-              borderStyle: 'dashed',
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              marginTop: 8,
-            }}
-          >
-            <Feather name="plus" size={18} color={C.accentDim} />
-            <Text
+        {/* Carte de l'enfant sélectionné */}
+        <Animated.View style={[styles.card, { opacity: fade, transform: [{ translateY: lift }] }]}>
+          <LinearGradient colors={[BRAND_VIOLET, '#B4478F', BRAND_ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <View style={styles.cardTop}>
+            <Avatar child={selected} size={96} tint="#FFFFFF" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.cardName} numberOfLines={2}>{selected.prenoms}{'\n'}{selected.nom}</Text>
+              <Text style={styles.cardMeta} numberOfLines={1}>{selected.classe} · {selected.schoolName}</Text>
+              <Text style={styles.cardMatricule}>{selected.matricule}</Text>
+            </View>
+            <View style={{ alignSelf: 'flex-start' }}><StatusPill statut={selected.statut} /></View>
+          </View>
+
+          <View style={styles.cardStats}>
+            <Stat label="Moyenne" value={moyenne} />
+            <View style={styles.statDivider} />
+            <Stat label="Présence" value={`${selected.tauxPresence ?? 0}%`} />
+            <View style={styles.statDivider} />
+            <Stat label="Année" value={selected.anneeScolaire ?? '—'} />
+          </View>
+
+          {renderProfileButton(true)}
+        </Animated.View>
+
+        {/* Grille des enfants */}
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>Tous les enfants</Text>
+        <View style={styles.grid}>
+          {children.map((c, i) => {
+            const active = c.id === selectedId;
+            return (
+              <TouchableOpacity
+                key={c.id}
+                activeOpacity={0.8}
+                onPress={() => setSelectedId(c.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${c.prenoms}, ${c.classe}`}
+                style={{ width: colW, alignItems: 'center', marginBottom: 22 }}
+              >
+                <Avatar child={c} size={colW - 22} tint={PASTELS[i % PASTELS.length]} selected={active} />
+                <Text style={[styles.gridName, { color: active ? BRAND_VIOLET : colors.text }]} numberOfLines={1}>
+                  {c.prenoms.split(' ')[0]}
+                </Text>
+                <Text style={[styles.gridClass, { color: colors.textMuted }]} numberOfLines={1}>{c.classe}</Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {/* Ajouter */}
+          <TouchableOpacity activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Ajouter un enfant" style={{ width: colW, alignItems: 'center', marginBottom: 22 }}>
+            <View
               style={{
-                fontSize: 13,
-                fontWeight: '600',
-                color: C.accentDim,
-                letterSpacing: 0.2,
+                width: colW - 22 + 12,
+                height: colW - 22 + 12,
+                borderRadius: (colW - 22 + 12) / 2,
+                borderWidth: 1.5,
+                borderStyle: 'dashed',
+                borderColor: colors.border,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              Ajouter un enfant
-            </Text>
+              <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.addDot}>
+                <Feather name="plus" size={18} color="#FFFFFF" />
+              </LinearGradient>
+            </View>
+            <Text style={[styles.gridName, { color: colors.text }]}>Ajouter</Text>
+            <Text style={[styles.gridClass, { color: colors.textMuted }]}> </Text>
           </TouchableOpacity>
-        )}
-      />
+        </View>
+      </ScrollView>
     </View>
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 22 },
+  headerTitle: { fontSize: 26, fontWeight: '300', letterSpacing: -0.5 },
+  headerSub: { fontSize: 12.5, marginTop: 3 },
+  headerBar: { width: 34, height: 3, borderRadius: 2, marginTop: 10 },
+  backBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+
+  card: { marginHorizontal: 16, borderRadius: 30, padding: 20, overflow: 'hidden' },
+  cardTop: { flexDirection: 'row', alignItems: 'center' },
+  cardName: { fontSize: 21, fontWeight: '600', color: '#FFFFFF', letterSpacing: -0.4, lineHeight: 26 },
+  cardMeta: { fontSize: 12.5, color: 'rgba(255,255,255,0.85)', marginTop: 6 },
+  cardMatricule: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+
+  cardStats: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 18, paddingVertical: 14, marginTop: 20, marginBottom: 16 },
+  statDivider: { width: 1, height: 26, backgroundColor: 'rgba(255,255,255,0.28)' },
+  statValue: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  statLabel: { fontSize: 10.5, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
+
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingHorizontal: 11, paddingVertical: 6, borderRadius: 14 },
+  pillDot: { width: 6, height: 6, borderRadius: 3 },
+  pillText: { fontSize: 11.5, fontWeight: '600', color: INK },
+
+  profileBtn: { height: 52, borderRadius: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  profileArrow: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  profileBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600', letterSpacing: 0.2 },
+
+  addDot: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  sectionLabel: { fontSize: 14, marginTop: 30, marginBottom: 18, paddingHorizontal: 20 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20 },
+  gridName: { fontSize: 13, fontWeight: '600', marginTop: 10 },
+  gridClass: { fontSize: 10.5, marginTop: 2 },
+
+  singleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 40 },
+  singleRing: { width: 236, height: 236, borderRadius: 118, alignItems: 'center', justifyContent: 'center' },
+  singlePhoto: { width: 226, height: 226, borderRadius: 113, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: '#FFFFFF' },
+  singleName: { fontSize: 26, fontWeight: '600', letterSpacing: -0.5, marginTop: 24, textAlign: 'center' },
+  singleMeta: { fontSize: 13.5, marginTop: 6, textAlign: 'center' },
+  singleStats: { flexDirection: 'row', width: '100%', borderRadius: 20, paddingVertical: 16, marginTop: 26 },
+  statCol: { flex: 1, alignItems: 'center' },
+});

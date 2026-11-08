@@ -1,573 +1,218 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  StatusBar,
-  Animated,
-} from 'react-native';
+// screens/eleve/StudentAttendanceScreen.tsx
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, ScrollView, Image, TouchableOpacity, RefreshControl, StatusBar, Animated, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const C = {
-  bg:          '#0E1117',
-  surface:     '#12151E',
-  surfaceAlt:  '#161A24',
-  border:      '#1C2030',
-  borderSub:   '#141720',
-  accent:      '#6366F1',
-  accentDim:   '#818CF8',
-  accentBg:    'rgba(99,102,241,0.10)',
-  green:       '#34D399',
-  greenBg:     'rgba(16,185,129,0.09)',
-  amber:       '#FBBF24',
-  amberBg:     'rgba(251,191,36,0.09)',
-  red:         '#EF4444',
-  redBg:       'rgba(239,68,68,0.09)',
-  purple:      '#A78BFA',
-  purpleBg:    'rgba(167,139,250,0.09)',
-  textPrimary:   '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted:     '#4A5060',
-  textDim:       '#2E3245',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#8B5CF6';
+const GRADIENT_BRAND: [string, string] = [BRAND_ORANGE, BRAND_VIOLET];
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Teintes sobres pour les états de présence
+const SAGE = '#37806F';   // présent : vert sauge profond
+const OCHRE = '#B07D2E';  // retard : ocre doré
+const BRICK = '#A9514A';  // absent : terre cuite
+
+// ─── DONNÉES ──────────────────────────────────────────────────────────────
 type Statut = 'PRESENT' | 'ABSENT' | 'RETARD' | 'EXCUSE';
+interface HistoriqueItem { date: string; statut: Statut; motif?: string }
+const ANNEE = 2025;
+const ELEVE = { prenoms: 'Jean Junior', nom: 'MOUKOKO', photo: 'https://i.pravatar.cc/300?img=12' };
 
-interface HistoriqueItem {
-  date: string;        // ISO YYYY-MM-DD
-  statut: Statut;
-  motif?: string;
-}
-
-interface AttendanceData {
-  totalJours:   number;
-  presents:     number;
-  absents:      number;
-  retards:      number;
-  excuses:      number;
-  tauxPresence: number;
-  historique:   HistoriqueItem[];
-}
-
-// ─── Mock ─────────────────────────────────────────────────────────────────────
-const MOCK: AttendanceData = {
-  totalJours: 22, presents: 18, absents: 2, retards: 2, excuses: 1,
-  tauxPresence: 81.8,
-  historique: [
-    { date: '2025-10-01', statut: 'PRESENT' },
-    { date: '2025-10-02', statut: 'PRESENT' },
-    { date: '2025-10-03', statut: 'RETARD'  },
-    { date: '2025-10-04', statut: 'PRESENT' },
-    { date: '2025-10-05', statut: 'PRESENT' },
-    { date: '2025-10-08', statut: 'ABSENT',  motif: 'Maladie' },
-    { date: '2025-10-09', statut: 'PRESENT' },
-    { date: '2025-10-10', statut: 'PRESENT' },
-    { date: '2025-10-11', statut: 'PRESENT' },
-    { date: '2025-10-12', statut: 'ABSENT',  motif: 'Rendez-vous médical' },
-    { date: '2025-10-15', statut: 'PRESENT' },
-    { date: '2025-10-16', statut: 'RETARD'  },
-    { date: '2025-10-17', statut: 'PRESENT' },
-    { date: '2025-10-18', statut: 'PRESENT' },
-    { date: '2025-10-19', statut: 'PRESENT' },
-    { date: '2025-10-22', statut: 'PRESENT' },
-    { date: '2025-10-23', statut: 'PRESENT' },
-    { date: '2025-10-24', statut: 'PRESENT' },
-    { date: '2025-10-25', statut: 'PRESENT' },
-    { date: '2025-10-26', statut: 'PRESENT' },
-    { date: '2025-10-29', statut: 'PRESENT' },
-    { date: '2025-10-30', statut: 'PRESENT' },
-    { date: '2025-10-31', statut: 'EXCUSE',  motif: 'Sortie scolaire' },
-  ],
-};
-
-const MOIS_FR = [
-  'Janvier','Février','Mars','Avril','Mai','Juin',
-  'Juillet','Août','Septembre','Octobre','Novembre','Décembre',
+const h = (date: string, statut: Statut, motif?: string): HistoriqueItem => ({ date, statut, motif });
+const HISTORIQUE: HistoriqueItem[] = [
+  h('2025-10-01', 'PRESENT'), h('2025-10-02', 'PRESENT'), h('2025-10-03', 'RETARD'), h('2025-10-04', 'PRESENT'),
+  h('2025-10-05', 'PRESENT'), h('2025-10-08', 'ABSENT', 'Maladie'), h('2025-10-09', 'PRESENT'), h('2025-10-10', 'PRESENT'),
+  h('2025-10-11', 'PRESENT'), h('2025-10-12', 'ABSENT', 'Rendez-vous médical'), h('2025-10-15', 'PRESENT'),
+  h('2025-10-16', 'RETARD'), h('2025-10-17', 'PRESENT'), h('2025-10-18', 'PRESENT'), h('2025-10-19', 'PRESENT'),
+  h('2025-10-22', 'PRESENT'), h('2025-10-23', 'PRESENT'), h('2025-10-24', 'PRESENT'), h('2025-10-25', 'PRESENT'),
+  h('2025-10-26', 'PRESENT'), h('2025-10-29', 'PRESENT'), h('2025-10-30', 'PRESENT'), h('2025-10-31', 'EXCUSE', 'Sortie scolaire'),
 ];
-const JOURS_FR = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
-const JOURS_LONG = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const parseDate = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
+const MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+const JOURS_COURTS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const parseDate = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
 
-const formatDateLong = (iso: string) => {
-  const d = parseDate(iso);
-  return {
-    jour:    JOURS_LONG[d.getDay()],
-    jourCourt: JOURS_FR[d.getDay()],
-    num:     d.getDate(),
-    mois:    MOIS_FR[d.getMonth()],
-    annee:   d.getFullYear(),
-    dayNum:  d.getDay(),   // 0 = dim
-  };
-};
+// 3 états seulement : Présent / Retard / Absent (une absence justifiée compte comme absent)
+type Etat = 'PRESENT' | 'RETARD' | 'ABSENT';
+const etatOf = (s: Statut): Etat => (s === 'EXCUSE' ? 'ABSENT' : s);
+const TONE: Record<Etat, string> = { PRESENT: SAGE, RETARD: OCHRE, ABSENT: BRICK };
+const LABEL: Record<Etat, string> = { PRESENT: 'Présent', RETARD: 'Retard', ABSENT: 'Absent' };
 
-const getStatutConfig = (s: Statut) => {
-  switch (s) {
-    case 'PRESENT': return { label: 'Présent',  color: C.green,  bg: C.greenBg,  icon: 'check-circle' as const };
-    case 'ABSENT':  return { label: 'Absent',   color: C.red,    bg: C.redBg,    icon: 'x-circle'     as const };
-    case 'RETARD':  return { label: 'En retard',color: C.amber,  bg: C.amberBg,  icon: 'clock'        as const };
-    case 'EXCUSE':  return { label: 'Excusé',   color: C.purple, bg: C.purpleBg, icon: 'file-text'    as const };
-  }
-};
-
-// Calcule le pourcentage de la barre de progression
-const getProgressColor = (taux: number) =>
-  taux >= 90 ? C.green : taux >= 75 ? C.amber : C.red;
-
-// ─── Composants atomiques ─────────────────────────────────────────────────────
-const SectionTitle = ({ children }: { children: string }) => (
-  <Text style={{
-    fontSize: 11, fontWeight: '700', color: '#7880A0',
-    textTransform: 'uppercase', letterSpacing: 1.2,
-    marginBottom: 12, marginTop: 24,
-  }}>{children}</Text>
-);
-
-// ─── Carte stat header ────────────────────────────────────────────────────────
-interface MiniStatProps {
-  value: number | string;
-  label: string;
-  color: string;
-}
-const MiniStat: React.FC<MiniStatProps> = ({ value, label, color }) => (
-  <View style={{
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-  }}>
-    <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFF', letterSpacing: -0.5 }}>
-      {value}
-    </Text>
-    <View style={{ width: 20, height: 2, borderRadius: 1, backgroundColor: color, marginVertical: 4 }} />
-    <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' }}>
-      {label}
-    </Text>
-  </View>
-);
-
-// ─── Ligne historique ─────────────────────────────────────────────────────────
-interface HistRowProps {
-  item: HistoriqueItem;
-  animTX: Animated.Value;
-  animOp: Animated.Value;
-}
-const HistRow: React.FC<HistRowProps> = ({ item, animTX, animOp }) => {
-  const cfg = getStatutConfig(item.statut);
-  const { jour, num, mois, jourCourt, dayNum } = formatDateLong(item.date);
-  const isWeekend = dayNum === 0 || dayNum === 6;
-
-  return (
-    <Animated.View style={{
-      marginBottom: 8,
-      transform: [{ translateX: animTX }],
-      opacity: animOp,
-    }}>
-      <View style={{
-        backgroundColor: C.surface,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: item.statut !== 'PRESENT' ? `${cfg.color}25` : C.border,
-        flexDirection: 'row',
-        alignItems: 'center',
-        overflow: 'hidden',
-      }}>
-        {/* Bande latérale colorée */}
-        <View style={{
-          width: 4,
-          alignSelf: 'stretch',
-          backgroundColor: cfg.color,
-          opacity: item.statut === 'PRESENT' ? 0.35 : 0.75,
-        }} />
-
-        {/* Bloc date */}
-        <View style={{
-          width: 62,
-          alignItems: 'center',
-          paddingVertical: 14,
-          paddingHorizontal: 6,
-          borderRightWidth: 1,
-          borderRightColor: C.borderSub,
-        }}>
-          <Text style={{
-            fontSize: 9, fontWeight: '700',
-            color: isWeekend ? C.amber : C.textMuted,
-            textTransform: 'uppercase', letterSpacing: 0.8,
-          }}>
-            {jourCourt}
-          </Text>
-          <Text style={{
-            fontSize: 22, fontWeight: '800',
-            color: item.statut !== 'PRESENT' ? cfg.color : C.textPrimary,
-            letterSpacing: -0.5, lineHeight: 26,
-          }}>
-            {num}
-          </Text>
-          <Text style={{
-            fontSize: 9, color: C.textDim,
-            fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4,
-          }}>
-            {mois.slice(0, 3)}
-          </Text>
-        </View>
-
-        {/* Corps */}
-        <View style={{ flex: 1, paddingHorizontal: 14, paddingVertical: 12 }}>
-          <Text style={{
-            fontSize: 13, fontWeight: '700',
-            color: item.statut !== 'PRESENT' ? cfg.color : C.textSecondary,
-            letterSpacing: -0.1,
-          }}>
-            {jour}
-          </Text>
-          {item.motif ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-              <Feather name="info" size={10} color={C.textMuted} />
-              <Text style={{ fontSize: 11, color: C.textMuted, fontStyle: 'italic' }}>
-                {item.motif}
-              </Text>
-            </View>
-          ) : (
-            <Text style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
-              {item.statut === 'PRESENT' ? 'Journée complète' : '—'}
-            </Text>
-          )}
-        </View>
-
-        {/* Badge statut */}
-        <View style={{
-          backgroundColor: cfg.bg,
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: cfg.color + '30',
-          paddingVertical: 5,
-          paddingHorizontal: 9,
-          marginRight: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 4,
-        }}>
-          <Feather name={cfg.icon} size={11} color={cfg.color} />
-          <Text style={{
-            fontSize: 9, fontWeight: '800',
-            color: cfg.color, textTransform: 'uppercase', letterSpacing: 0.5,
-          }}>
-            {cfg.label}
-          </Text>
-        </View>
-      </View>
-    </Animated.View>
+// Pastille de jour : présent = disque doux teinté, retard / absent = disque plein (les exceptions ressortent)
+const DayMark = ({ etat, size, label, colors }: { etat?: Etat; size: number; label?: number; colors: any }) => {
+  const base = { width: size, height: size, borderRadius: size / 2, alignItems: 'center' as const, justifyContent: 'center' as const };
+  const t = { fontSize: size * 0.4, fontWeight: '600' as const };
+  if (!etat) return <View style={base}><Text style={[t, { color: colors.textMuted, fontWeight: '400' }]}>{label}</Text></View>;
+  if (etat === 'PRESENT') return (
+    <View style={[base, { backgroundColor: `${SAGE}26` }]}>
+      {label !== undefined ? <Text style={[t, { color: SAGE }]}>{label}</Text> : null}
+    </View>
   );
-};
-
-// ─── Barre de progression circulaire simulée ──────────────────────────────────
-interface RingProps { taux: number }
-const Ring: React.FC<RingProps> = ({ taux }) => {
-  const color = getProgressColor(taux);
-  const mention =
-    taux >= 90 ? 'Excellent' :
-    taux >= 75 ? 'Satisfaisant' : 'Insuffisant';
   return (
-    <View style={{ alignItems: 'center' }}>
-      <View style={{
-        width: 110, height: 110, borderRadius: 55,
-        backgroundColor: `${color}12`,
-        borderWidth: 6, borderColor: `${color}35`,
-        alignItems: 'center', justifyContent: 'center',
-      }}>
-        <View style={{
-          position: 'absolute', width: 110, height: 110, borderRadius: 55,
-          borderWidth: 6, borderColor: color,
-          borderTopColor: 'transparent', borderRightColor: taux > 50 ? color : 'transparent',
-          opacity: 0.9,
-        }} />
-        <Text style={{ fontSize: 26, fontWeight: '900', color, letterSpacing: -1 }}>
-          {taux}%
-        </Text>
-      </View>
-      <View style={{
-        marginTop: 10,
-        backgroundColor: `${color}15`,
-        borderRadius: 8, borderWidth: 1, borderColor: `${color}25`,
-        paddingVertical: 3, paddingHorizontal: 12,
-      }}>
-        <Text style={{ fontSize: 11, fontWeight: '700', color, letterSpacing: 0.3 }}>
-          {mention}
-        </Text>
-      </View>
+    <View style={[base, { backgroundColor: TONE[etat] }]}>
+      {label !== undefined ? <Text style={[t, { color: '#FFF' }]}>{label}</Text> : null}
     </View>
   );
 };
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+const FadeIn = ({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) => {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(v, { toValue: 1, duration: 400, delay, useNativeDriver: true }).start(); }, []);
+  return <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>{children}</Animated.View>;
+};
+
+// ─── ÉCRAN ────────────────────────────────────────────────────────────────
 export const StudentAttendanceScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(9);   // Octobre = index 9
-  const [attendance]   = useState(MOCK);
+  const [month, setMonth] = useState(9);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
-  const headerAnim  = useRef(new Animated.Value(0)).current;
-  const cardAnim    = useRef(new Animated.Value(0)).current;
+  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); };
 
-  // Une valeur par ligne d'historique
-  const rowAnims = useRef(
-    attendance.historique.map(() => ({
-      tx: new Animated.Value(-16),
-      op: new Animated.Value(0),
-    }))
-  ).current;
+  const items = HISTORIQUE.filter(i => parseDate(i.date).getMonth() === month);
+  const byDay: Record<number, Etat> = {};
+  items.forEach(i => { byDay[parseDate(i.date).getDate()] = etatOf(i.statut); });
+  const n = (e: Etat) => items.filter(i => etatOf(i.statut) === e).length;
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(headerAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.spring(cardAnim,   { toValue: 1, tension: 60, friction: 10, useNativeDriver: true }),
-    ]).start();
+  const first = new Date(ANNEE, month, 1);
+  const offset = (first.getDay() + 6) % 7;
+  const nbDays = new Date(ANNEE, month + 1, 0).getDate();
+  const cells: (number | null)[] = [...Array(offset).fill(null), ...Array.from({ length: nbDays }, (_, i) => i + 1)];
 
-    const staggered = rowAnims.map((a, i) =>
-      Animated.parallel([
-        Animated.spring(a.tx, { toValue: 0, tension: 60, friction: 10, delay: 120 + i * 25, useNativeDriver: true }),
-        Animated.timing(a.op, { toValue: 1, duration: 200, delay: 120 + i * 25, useNativeDriver: true }),
-      ])
-    );
-    Animated.stagger(0, staggered).start();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
-
-  // Filtrage sur le mois sélectionné
-  const filtered = attendance.historique.filter(item => {
-    const d = parseDate(item.date);
-    return d.getMonth() === selectedMonth;
-  });
-
-  const progressColor = getProgressColor(attendance.tauxPresence);
+  const etats: Etat[] = ['PRESENT', 'RETARD', 'ABSENT'];
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      <LinearGradient
+        pointerEvents="none"
+        colors={[`${BRAND_VIOLET}33`, `${BRAND_ORANGE}1A`, 'transparent']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={[StyleSheet.absoluteFill, { height: 340 }]}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />}
+        contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 36 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* ───── Header ───── */}
-        <Animated.View style={{ opacity: headerAnim }}>
-          <LinearGradient
-            colors={['#1A1035', '#2D1B69', '#4C1D95']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              paddingTop: 56, paddingBottom: 28, paddingHorizontal: 22,
-              borderBottomLeftRadius: 32, borderBottomRightRadius: 32,
-              overflow: 'hidden',
-            }}
-          >
-            {/* Halo décoratif */}
-            <View style={{
-              position: 'absolute', top: -40, right: -40,
-              width: 180, height: 180, borderRadius: 90,
-              backgroundColor: 'rgba(167,139,250,0.08)',
-            }} />
+        <View style={styles.topBar}>
+          <TouchableOpacity activeOpacity={0.75} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Retour" style={[styles.roundBtn, { backgroundColor: colors.surfaceElevated }]}>
+            <Feather name="arrow-left" size={18} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.topTitle, { color: colors.text }]}>Présences</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-            {/* Logo + titre */}
-            <Text style={{
-              fontSize: 11, fontWeight: '700', color: 'rgba(167,139,250,0.7)',
-              letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 16,
-            }}>
-              ✦ SURYA
-            </Text>
-            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-              Suivi des présences
-            </Text>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF', letterSpacing: -0.5, marginTop: 2, marginBottom: 20 }}>
-              Mes présences
-            </Text>
-
-            {/* Stats 4 colonnes */}
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              <MiniStat value={attendance.presents}  label="Présents" color={C.green}  />
-              <MiniStat value={attendance.absents}   label="Absents"  color={C.red}    />
-              <MiniStat value={attendance.retards}   label="Retards"  color={C.amber}  />
-              <MiniStat value={attendance.excuses}   label="Excusés"  color={C.purple} />
+        {/* Photo de l'élève */}
+        <View style={styles.who}>
+          <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ring}>
+            <View style={[styles.photo, { backgroundColor: colors.surfaceElevated, borderColor: colors.background }]}>
+              {!photoFailed
+                ? <Image source={{ uri: ELEVE.photo }} style={{ width: 84, height: 84 }} resizeMode="cover" onError={() => setPhotoFailed(true)} />
+                : <Text style={{ fontSize: 26, fontWeight: '600', color: colors.text }}>{ELEVE.prenoms[0]}{ELEVE.nom[0]}</Text>}
             </View>
           </LinearGradient>
-        </Animated.View>
-
-        {/* ───── Sélecteur de mois ───── */}
-        <View style={{
-          backgroundColor: C.surface,
-          borderBottomWidth: 1, borderBottomColor: C.border,
-          paddingVertical: 12,
-        }}>
-          <ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-          >
-            {MOIS_FR.map((month, index) => {
-              const active = selectedMonth === index;
-              return (
-                <TouchableOpacity
-                  key={month}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedMonth(index)}
-                  style={{
-                    paddingHorizontal: 14, paddingVertical: 7,
-                    borderRadius: 10,
-                    backgroundColor: active ? C.accent : C.surfaceAlt,
-                    borderWidth: 1,
-                    borderColor: active ? `${C.accent}80` : C.border,
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 12, fontWeight: active ? '700' : '500',
-                    color: active ? '#FFF' : C.textMuted,
-                  }}>
-                    {month.slice(0, 4)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <Text style={[styles.whoName, { color: colors.text }]}>{ELEVE.prenoms} {ELEVE.nom}</Text>
         </View>
 
-        <View style={{ paddingHorizontal: 16, paddingBottom: 100 }}>
+        {/* Mois */}
+        <View style={styles.monthRow}>
+          <TouchableOpacity disabled={month === 0} onPress={() => setMonth(month - 1)} accessibilityRole="button" accessibilityLabel="Mois précédent" style={[styles.chev, month === 0 && { opacity: 0.3 }]}>
+            <Feather name="chevron-left" size={22} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.monthText, { color: colors.text }]}>{MOIS[month]}</Text>
+          <TouchableOpacity disabled={month === 11} onPress={() => setMonth(month + 1)} accessibilityRole="button" accessibilityLabel="Mois suivant" style={[styles.chev, month === 11 && { opacity: 0.3 }]}>
+            <Feather name="chevron-right" size={22} color={colors.text} />
+          </TouchableOpacity>
+        </View>
 
-          {/* ───── Carte synthèse ───── */}
-          <Animated.View style={{
-            marginTop: 20,
-            backgroundColor: C.surface,
-            borderRadius: 22, borderWidth: 1, borderColor: C.border,
-            padding: 20, marginBottom: 4,
-            opacity: cardAnim,
-            transform: [{ scale: cardAnim.interpolate({ inputRange: [0,1], outputRange: [0.95, 1] }) }],
-          }}>
-            <Text style={{
-              fontSize: 10, fontWeight: '700', color: C.textMuted,
-              textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center', marginBottom: 16,
-            }}>
-              {MOIS_FR[selectedMonth]} 2025
-            </Text>
-
-            {/* Ring */}
-            <View style={{ alignItems: 'center', marginBottom: 20 }}>
-              <Ring taux={attendance.tauxPresence} />
-            </View>
-
-            {/* Barre de progression linéaire */}
-            <View style={{ marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text style={{ fontSize: 11, color: C.textMuted, fontWeight: '600' }}>
-                  Progression mensuelle
-                </Text>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: progressColor }}>
-                  {attendance.presents} / {attendance.totalJours} jours
-                </Text>
-              </View>
-              <View style={{
-                height: 6, backgroundColor: C.surfaceAlt,
-                borderRadius: 3, overflow: 'hidden',
-              }}>
-                <View style={{
-                  height: 6, borderRadius: 3,
-                  width: `${attendance.tauxPresence}%`,
-                  backgroundColor: progressColor,
-                }} />
-              </View>
-            </View>
-
-            {/* 3 chiffres clés */}
-            <View style={{
-              flexDirection: 'row',
-              borderTopWidth: 1, borderTopColor: C.borderSub,
-              paddingTop: 16,
-            }}>
-              {[
-                { label: 'Total jours',  value: attendance.totalJours, color: C.accentDim },
-                { label: 'Présents',     value: attendance.presents,   color: C.green     },
-                { label: 'Absences',     value: attendance.absents,    color: C.red       },
-              ].map((s, i) => (
-                <View key={s.label} style={{
-                  flex: 1, alignItems: 'center',
-                  borderRightWidth: i < 2 ? 1 : 0,
-                  borderRightColor: C.borderSub,
-                }}>
-                  <Text style={{ fontSize: 22, fontWeight: '800', color: s.color, letterSpacing: -0.5 }}>
-                    {s.value}
-                  </Text>
-                  <Text style={{ fontSize: 9, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600', marginTop: 2 }}>
-                    {s.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-
-          {/* ───── Légende rapide ───── */}
-          <View style={{
-            flexDirection: 'row', flexWrap: 'wrap', gap: 6,
-            marginBottom: 4, marginTop: 8,
-          }}>
-            {(['PRESENT','ABSENT','RETARD','EXCUSE'] as Statut[]).map(s => {
-              const cfg = getStatutConfig(s);
-              return (
-                <View key={s} style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 5,
-                  backgroundColor: cfg.bg,
-                  borderRadius: 8, paddingVertical: 4, paddingHorizontal: 9,
-                  borderWidth: 1, borderColor: cfg.color + '25',
-                }}>
-                  <Feather name={cfg.icon} size={10} color={cfg.color} />
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: cfg.color }}>
-                    {cfg.label}
-                  </Text>
-                </View>
-              );
-            })}
+        {items.length === 0 ? (
+          <View style={styles.empty}>
+            <Feather name="calendar" size={30} color={colors.textMuted} />
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>Aucune information</Text>
           </View>
+        ) : (
+          <>
+            {/* 3 chiffres, c'est tout */}
+            <FadeIn>
+              <View style={styles.stats}>
+                {etats.map((e, i) => (
+                  <React.Fragment key={e}>
+                    {i > 0 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
+                    <View style={styles.stat}>
+                      <Text style={[styles.statValue, { color: colors.text }]}>{n(e)}</Text>
+                      <View style={styles.statLabelRow}>
+                        <View style={[styles.dot, { backgroundColor: TONE[e] }]} />
+                        <Text style={[styles.statLabel, { color: colors.textMuted }]}>{LABEL[e]}</Text>
+                      </View>
+                    </View>
+                  </React.Fragment>
+                ))}
+              </View>
+            </FadeIn>
 
-          {/* ───── Historique ───── */}
-          <SectionTitle>
-            Historique — {MOIS_FR[selectedMonth]} 2025
-          </SectionTitle>
-
-          {filtered.length === 0 ? (
-            <View style={{
-              backgroundColor: C.surface, borderRadius: 16, borderWidth: 1,
-              borderColor: C.border, padding: 32, alignItems: 'center',
-            }}>
-              <Text style={{ fontSize: 28, marginBottom: 8 }}>📭</Text>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: C.textMuted, textAlign: 'center' }}>
-                Aucune donnée pour ce mois
-              </Text>
-            </View>
-          ) : (
-            filtered.map((item, index) => {
-              const originalIdx = attendance.historique.findIndex(h => h.date === item.date);
-              const anim = rowAnims[originalIdx] ?? rowAnims[0];
-              return (
-                <HistRow
-                  key={item.date}
-                  item={item}
-                  animTX={anim.tx}
-                  animOp={anim.op}
-                />
-              );
-            })
-          )}
-        </View>
+            {/* Calendrier */}
+            <FadeIn delay={120}>
+              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.weekHead}>
+                  {JOURS_COURTS.map((j, i) => <Text key={i} style={[styles.weekDay, { color: colors.textMuted }]}>{j}</Text>)}
+                </View>
+                <View style={styles.grid}>
+                  {cells.map((d, i) => (
+                    <View key={i} style={styles.cell}>
+                      {d !== null && <DayMark etat={byDay[d]} size={36} label={d} colors={colors} />}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </FadeIn>
+          </>
+        )}
       </ScrollView>
     </View>
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
+  roundBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  topTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+
+  who: { alignItems: 'center', marginTop: 22 },
+  ring: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
+  photo: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  whoName: { fontSize: 16, fontWeight: '600', letterSpacing: -0.3, marginTop: 12 },
+
+  monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, marginTop: 14 },
+  chev: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  monthText: { fontSize: 26, fontWeight: '600', letterSpacing: -0.6, minWidth: 150, textAlign: 'center' },
+
+  stats: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 22, marginTop: 34 },
+  stat: { flex: 1, alignItems: 'center' },
+  divider: { width: StyleSheet.hairlineWidth, height: 56 },
+  statValue: { fontSize: 56, fontWeight: '200', letterSpacing: -2 },
+  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 2 },
+  statLabel: { fontSize: 14 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+
+  card: { marginHorizontal: 16, marginTop: 36, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingVertical: 20 },
+  weekHead: { flexDirection: 'row', marginBottom: 8 },
+  weekDay: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  cell: { width: `${100 / 7}%`, height: 46, alignItems: 'center', justifyContent: 'center' },
+
+  empty: { alignItems: 'center', paddingVertical: 64, gap: 10 },
+  emptyText: { fontSize: 14 },
+});

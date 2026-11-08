@@ -1,5 +1,5 @@
 // screens/shared/NotificationsScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,16 @@ import {
   TouchableOpacity,
   RefreshControl,
   StatusBar,
+  Animated,
 } from 'react-native';
-import { MotiView } from 'moti';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../hooks/useTheme';
+import { useTheme } from '../../theme';
 import { EmptyState } from '../../components/animations/EmptyState';
 
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Notification {
   id: string;
   titre: string;
@@ -23,35 +26,173 @@ interface Notification {
   date: string;
 }
 
-// Mock data
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_NOTIFICATIONS: Notification[] = [
   { id: '1', titre: 'Nouvelle note', message: 'Note publiée en Mathématiques', type: 'info', isRead: false, date: '2025-10-16' },
   { id: '2', titre: 'Paiement échu', message: 'Facture de cantine en retard', type: 'warning', isRead: false, date: '2025-10-01' },
   { id: '3', titre: 'Nouvel événement', message: 'Hackathon le 25 octobre', type: 'success', isRead: true, date: '2025-10-10' },
 ];
 
-const getTypeIcon = (type: string): keyof typeof Feather.glyphMap => {
-  switch (type) {
-    case 'success': return 'check-circle';
-    case 'warning': return 'alert-triangle';
-    case 'error': return 'x-circle';
-    default: return 'info';
-  }
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT POUR UNE NOTIFICATION INDIVIDUELLE
+// ──────────────────────────────────────────────────────────────
+interface NotificationItemProps {
+  item: Notification;
+  index: number;
+  onMarkAsRead: (id: string) => void;
+  colors: any;
+}
+
+const NotificationItem: React.FC<NotificationItemProps> = ({ 
+  item, 
+  index, 
+  onMarkAsRead,
+  colors 
+}) => {
+  const isUnread = !item.isRead;
+
+  // ✅ Hook appelé au top-level du composant
+  const translateX = useRef(new Animated.Value(-20)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(translateX, {
+        toValue: 0,
+        damping: 20,
+        delay: 50 + index * 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 300,
+        delay: 50 + index * 50,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const getTypeConfig = (type: string) => {
+    const configs: Record<string, { icon: keyof typeof Feather.glyphMap; color: string; bg: string }> = {
+      success: { icon: 'check-circle', color: colors.success, bg: colors.success + '15' },
+      warning: { icon: 'alert-triangle', color: colors.warning, bg: colors.warning + '15' },
+      error: { icon: 'x-circle', color: colors.error, bg: colors.error + '15' },
+      info: { icon: 'info', color: colors.info, bg: colors.info + '15' },
+    };
+    return configs[type] || configs.info;
+  };
+
+  const config = getTypeConfig(item.type);
+
+  return (
+    <Animated.View
+      style={{
+        paddingHorizontal: 18,
+        transform: [{ translateX }],
+        opacity,
+      }}
+    >
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onMarkAsRead(item.id)}
+        style={{
+          flexDirection: 'row',
+          padding: 16,
+          marginBottom: 8,
+          borderRadius: 14,
+          backgroundColor: isUnread 
+            ? colors.primaryBg
+            : colors.surface,
+          borderWidth: 1,
+          borderColor: isUnread 
+            ? colors.primary + '30'
+            : colors.border,
+        }}
+      >
+        {/* Icône */}
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: config.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+          }}
+        >
+          <Feather name={config.icon} size={18} color={config.color} />
+        </View>
+
+        {/* Contenu */}
+        <View style={{ flex: 1 }}>
+          <Text style={{
+            fontSize: 14,
+            fontWeight: isUnread ? '700' : '500',
+            color: isUnread ? colors.text : colors.textMuted,
+          }}>
+            {item.titre}
+          </Text>
+          <Text style={{
+            fontSize: 12,
+            color: isUnread ? colors.textSecondary : colors.textMuted,
+            marginTop: 2,
+          }}>
+            {item.message}
+          </Text>
+          <Text style={{
+            fontSize: 11,
+            color: colors.textMuted,
+            marginTop: 6,
+          }}>
+            {item.date}
+          </Text>
+        </View>
+
+        {/* Indicateur non lu */}
+        {isUnread && (
+          <View style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: config.color,
+            alignSelf: 'center',
+            marginLeft: 8,
+          }} />
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
-const getTypeColor = (type: string): string => {
-  switch (type) {
-    case 'success': return '#34D399';
-    case 'warning': return '#FBBF24';
-    case 'error': return '#EF4444';
-    default: return '#60A5FA';
-  }
-};
-
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const NotificationsScreen: React.FC = () => {
-  const { isDark } = useTheme();
+  const { colors } = useTheme();
   const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
   const [refreshing, setRefreshing] = useState(false);
+
+  // ─── Animations ───
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        damping: 20,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -66,20 +207,14 @@ export const NotificationsScreen: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  // Couleurs dynamiques
-  const bgColor = isDark ? '#0E1117' : '#F9FAFB';
-  const textColor = isDark ? '#E8EAF0' : '#1A1A2E';
-  const textSecondary = isDark ? '#CDD0E0' : '#4A5568';
-  const textMuted = isDark ? '#4A5060' : '#9CA3AF';
-  const borderColor = isDark ? '#1C2030' : '#E5E7EB';
-
+  // ─── RENDU ───
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
+      {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
       <LinearGradient
-        colors={['#1E1B4B', '#312E81', '#4F46E5']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -90,12 +225,16 @@ export const NotificationsScreen: React.FC = () => {
           borderBottomRightRadius: 28,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
           <View>
             <Text style={{
               fontSize: 12,
               fontWeight: '700',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
@@ -112,7 +251,7 @@ export const NotificationsScreen: React.FC = () => {
             </Text>
           </View>
           <View style={{
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.2)',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -138,111 +277,48 @@ export const NotificationsScreen: React.FC = () => {
         </View>
       </LinearGradient>
 
-      {/* ─── Liste des notifications ────────────────────────────────────────── */}
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            tintColor={isDark ? '#818CF8' : '#6366F1'} 
-          />
-        }
-        contentContainerStyle={{
-          paddingTop: 16,
-          paddingBottom: 40,
+      {/* ─── LISTE DES NOTIFICATIONS ─── */}
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: fadeAnim,
+          transform: [{ translateX: slideAnim }],
         }}
-        renderItem={({ item, index }) => {
-          const icon = getTypeIcon(item.type);
-          const color = getTypeColor(item.type);
-          const isUnread = !item.isRead;
-
-          return (
-            <MotiView
-              from={{ opacity: 0, translateX: -20 }}
-              animate={{ opacity: 1, translateX: 0 }}
-              transition={{ delay: index * 50 }}
-              style={{ paddingHorizontal: 18 }}
-            >
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => markAsRead(item.id)}
-                style={{
-                  flexDirection: 'row',
-                  padding: 16,
-                  marginBottom: 8,
-                  borderRadius: 14,
-                  backgroundColor: isUnread 
-                    ? isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.05)'
-                    : 'transparent',
-                  borderWidth: 1,
-                  borderColor: isUnread 
-                    ? isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.10)'
-                    : borderColor,
-                }}
-              >
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: color + '20',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 12,
-                  }}
-                >
-                  <Feather name={icon} size={18} color={color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    fontSize: 14,
-                    fontWeight: isUnread ? '700' : '500',
-                    color: isUnread ? textColor : textMuted,
-                  }}>
-                    {item.titre}
-                  </Text>
-                  <Text style={{
-                    fontSize: 12,
-                    color: isUnread ? textSecondary : textMuted,
-                    marginTop: 2,
-                  }}>
-                    {item.message}
-                  </Text>
-                  <Text style={{
-                    fontSize: 11,
-                    color: textMuted,
-                    marginTop: 6,
-                  }}>
-                    {item.date}
-                  </Text>
-                </View>
-                {isUnread && (
-                  <View style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: color,
-                    alignSelf: 'center',
-                    marginLeft: 8,
-                  }} />
-                )}
-              </TouchableOpacity>
-            </MotiView>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={{ marginTop: 40 }}>
-            <EmptyState
-              title="Aucune notification"
-              description="Vous n'avez pas encore de notifications"
-              icon="bell"
-              variant="default"
+      >
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh} 
+              tintColor={colors.primary}
             />
-          </View>
-        }
-      />
+          }
+          contentContainerStyle={{
+            paddingTop: 16,
+            paddingBottom: 40,
+          }}
+          renderItem={({ item, index }) => (
+            <NotificationItem
+              item={item}
+              index={index}
+              onMarkAsRead={markAsRead}
+              colors={colors}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={{ marginTop: 40 }}>
+              <EmptyState
+                title="Aucune notification"
+                description="Vous n'avez pas encore de notifications"
+                icon="bell"
+                variant="default"
+              />
+            </View>
+          }
+        />
+      </Animated.View>
     </View>
   );
 };

@@ -7,40 +7,18 @@ import {
   TouchableOpacity,
   RefreshControl,
   StatusBar,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Classe {
   id: string;
   nom: string;
@@ -52,7 +30,9 @@ interface Classe {
   progression?: number;
 }
 
-// ─── Données Mock ────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_CLASSES: Classe[] = [
   { 
     id: '1', 
@@ -86,8 +66,12 @@ const MOCK_CLASSES: Classe[] = [
   },
 ];
 
-// ─── Composant principal ──────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const TeacherClassesScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [classes, setClasses] = useState(MOCK_CLASSES);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -97,55 +81,81 @@ export const TeacherClassesScreen: React.FC = () => {
   };
 
   const getMoyenneColor = (moyenne?: number) => {
-    if (!moyenne) return C.textMuted;
-    if (moyenne >= 16) return C.green;
-    if (moyenne >= 12) return C.amber;
-    return C.red;
+    if (!moyenne) return colors.textMuted;
+    if (moyenne >= 16) return colors.success;
+    if (moyenne >= 12) return colors.warning;
+    return colors.error;
   };
 
+  const getPerformanceText = (moyenne?: number) => {
+    if (!moyenne) return 'Non évalué';
+    if (moyenne >= 16) return 'Excellent ! La classe est au top';
+    if (moyenne >= 12) return 'Performance correcte';
+    return "Besoin d'amélioration";
+  };
+
+  // ─── Fonctions de navigation ───
+  const goToGradeEntry = (classeId: string, className: string) => {
+    navigation.navigate('TeacherGradeEntry', { 
+      classeId, 
+      className 
+    });
+  };
+
+  const goToClassDetail = (classeId: string) => {
+    navigation.navigate('TeacherClassDetail', { classeId });
+  };
+
+  const goToTimetable = () => {
+    navigation.navigate('TeacherTimetable');
+  };
+
+  // ─── Rendu d'une carte de classe ───
   const renderClasseCard = ({ item, index }: { item: Classe; index: number }) => {
     const moyenneColor = getMoyenneColor(item.moyenne);
-    const isHigh = item.moyenne && item.moyenne >= 16;
-    const isLow = item.moyenne && item.moyenne < 12;
+    const performanceText = getPerformanceText(item.moyenne);
+
+    // ✅ Taille adaptative en fonction de l'écran
+    const isSmallScreen = SCREEN_WIDTH < 380;
 
     return (
       <View
         style={{
-          backgroundColor: C.surface,
+          backgroundColor: colors.surface,
           borderRadius: 20,
           borderWidth: 1,
-          borderColor: C.border,
+          borderColor: colors.border,
           marginBottom: 16,
           overflow: 'hidden',
         }}
       >
-        {/* ─── Header avec dégradé ────────────────────────────────────────────── */}
+        {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
         <LinearGradient
-          colors={['#1E1B4B', '#312E81', '#4F46E5']}
+          colors={[colors.primary, colors.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
-            paddingHorizontal: 18,
-            paddingVertical: 16,
+            paddingHorizontal: isSmallScreen ? 14 : 18,
+            paddingVertical: isSmallScreen ? 14 : 16,
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{
-              width: 44,
-              height: 44,
+              width: isSmallScreen ? 36 : 44,
+              height: isSmallScreen ? 36 : 44,
               borderRadius: 14,
-              backgroundColor: 'rgba(255,255,255,0.12)',
+              backgroundColor: 'rgba(255,255,255,0.15)',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              <Feather name="book" size={20} color="rgba(255,255,255,0.9)" />
+              <Feather name="book" size={isSmallScreen ? 16 : 20} color="rgba(255,255,255,0.9)" />
             </View>
             <View>
               <Text style={{
-                fontSize: 18,
+                fontSize: isSmallScreen ? 16 : 18,
                 fontWeight: '700',
                 color: '#FFFFFF',
                 letterSpacing: -0.3,
@@ -153,8 +163,8 @@ export const TeacherClassesScreen: React.FC = () => {
                 {item.nom}
               </Text>
               <Text style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.6)',
+                fontSize: isSmallScreen ? 10 : 11,
+                color: 'rgba(255,255,255,0.7)',
                 fontWeight: '500',
               }}>
                 {item.matiere}
@@ -163,13 +173,13 @@ export const TeacherClassesScreen: React.FC = () => {
           </View>
 
           <View style={{
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.15)',
             borderRadius: 12,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
+            paddingHorizontal: isSmallScreen ? 8 : 12,
+            paddingVertical: isSmallScreen ? 4 : 6,
           }}>
             <Text style={{
-              fontSize: 11,
+              fontSize: isSmallScreen ? 10 : 11,
               fontWeight: '600',
               color: '#FFFFFF',
             }}>
@@ -178,12 +188,12 @@ export const TeacherClassesScreen: React.FC = () => {
           </View>
         </LinearGradient>
 
-        {/* ─── Contenu ────────────────────────────────────────────────────────── */}
-        <View style={{ padding: 16 }}>
+        {/* ─── CONTENU ─── */}
+        <View style={{ padding: isSmallScreen ? 12 : 16 }}>
           {/* Stats principales */}
           <View style={{
             flexDirection: 'row',
-            gap: 12,
+            gap: isSmallScreen ? 8 : 12,
             marginBottom: 14,
           }}>
             {[
@@ -192,17 +202,17 @@ export const TeacherClassesScreen: React.FC = () => {
             ].map((stat) => (
               <View key={stat.label} style={{
                 flex: 1,
-                backgroundColor: C.surfaceAlt,
+                backgroundColor: colors.surfaceElevated,
                 borderRadius: 12,
-                padding: 10,
+                padding: isSmallScreen ? 8 : 10,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
               }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Feather name={stat.icon as any} size={14} color={C.textMuted} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Feather name={stat.icon as any} size={isSmallScreen ? 12 : 14} color={colors.textMuted} />
                   <Text style={{
-                    fontSize: 10,
-                    color: C.textMuted,
+                    fontSize: isSmallScreen ? 8 : 10,
+                    color: colors.textMuted,
                     fontWeight: '500',
                     textTransform: 'uppercase',
                     letterSpacing: 0.5,
@@ -211,9 +221,9 @@ export const TeacherClassesScreen: React.FC = () => {
                   </Text>
                 </View>
                 <Text style={{
-                  fontSize: 16,
+                  fontSize: isSmallScreen ? 14 : 16,
                   fontWeight: '700',
-                  color: C.textPrimary,
+                  color: colors.text,
                   marginTop: 2,
                 }}>
                   {stat.value}
@@ -223,32 +233,41 @@ export const TeacherClassesScreen: React.FC = () => {
           </View>
 
           {/* Moyenne avec barre de progression */}
-          <View style={{
-            backgroundColor: C.surfaceAlt,
-            borderRadius: 12,
-            padding: 12,
-            borderWidth: 1,
-            borderColor: C.border,
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => goToClassDetail(item.id)}
+            style={{
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: 12,
+              padding: isSmallScreen ? 10 : 12,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+            }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Feather name="trending-up" size={16} color={moyenneColor} />
+                <Feather name="trending-up" size={isSmallScreen ? 14 : 16} color={moyenneColor} />
                 <Text style={{
-                  fontSize: 12,
-                  color: C.textSecondary,
+                  fontSize: isSmallScreen ? 11 : 12,
+                  color: colors.textSecondary,
                   fontWeight: '500',
                 }}>
                   Moyenne de la classe
                 </Text>
               </View>
               <Text style={{
-                fontSize: 20,
+                fontSize: isSmallScreen ? 18 : 20,
                 fontWeight: '800',
                 color: moyenneColor,
                 letterSpacing: -0.5,
               }}>
                 {item.moyenne?.toFixed(1) || '—'}
-                <Text style={{ fontSize: 13, color: C.textMuted, fontWeight: '600' }}>
+                <Text style={{ fontSize: isSmallScreen ? 11 : 13, color: colors.textMuted, fontWeight: '600' }}>
                   /20
                 </Text>
               </Text>
@@ -257,7 +276,7 @@ export const TeacherClassesScreen: React.FC = () => {
             {/* Barre de progression */}
             <View style={{
               height: 4,
-              backgroundColor: C.border,
+              backgroundColor: colors.border,
               borderRadius: 2,
               overflow: 'hidden',
             }}>
@@ -283,88 +302,99 @@ export const TeacherClassesScreen: React.FC = () => {
                 backgroundColor: moyenneColor,
               }} />
               <Text style={{
-                fontSize: 10,
-                color: C.textMuted,
+                fontSize: isSmallScreen ? 9 : 10,
+                color: colors.textMuted,
               }}>
-                {isHigh ? 'Excellent ! La classe est au top' : 
-                 isLow ? 'Besoin d\'amélioration' : 
-                 'Performance correcte'}
+                {performanceText}
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* ─── Footer avec actions ────────────────────────────────────────────── */}
+        {/* ─── FOOTER AVEC ACTIONS (CORRIGÉ) ─── */}
         <View style={{
           flexDirection: 'row',
           borderTopWidth: 1,
-          borderTopColor: C.border,
-          backgroundColor: C.surfaceAlt,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surfaceElevated,
         }}>
           <TouchableOpacity
             activeOpacity={0.7}
+            onPress={() => goToGradeEntry(item.id, item.nom)}
             style={{
               flex: 1,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8,
-              paddingVertical: 12,
+              gap: isSmallScreen ? 4 : 6,
+              paddingVertical: isSmallScreen ? 10 : 12,
+              paddingHorizontal: 4,
             }}
           >
-            <Feather name="edit-2" size={16} color={C.accentDim} />
+            <Feather name="edit-2" size={isSmallScreen ? 14 : 16} color={colors.primary} />
             <Text style={{
-              fontSize: 12,
-              color: C.accentDim,
+              fontSize: isSmallScreen ? 10 : 12,
+              color: colors.primary,
               fontWeight: '600',
+              textAlign: 'center',
             }}>
-              Saisir notes
+              Notes
             </Text>
           </TouchableOpacity>
+          
           <View style={{
             width: 1,
-            backgroundColor: C.border,
+            backgroundColor: colors.border,
           }} />
+          
           <TouchableOpacity
             activeOpacity={0.7}
+            onPress={goToTimetable}
             style={{
               flex: 1,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8,
-              paddingVertical: 12,
+              gap: isSmallScreen ? 4 : 6,
+              paddingVertical: isSmallScreen ? 10 : 12,
+              paddingHorizontal: 4,
             }}
           >
-            <Feather name="calendar" size={16} color={C.textMuted} />
+            <Feather name="calendar" size={isSmallScreen ? 14 : 16} color={colors.textSecondary} />
             <Text style={{
-              fontSize: 12,
-              color: C.textMuted,
+              fontSize: isSmallScreen ? 10 : 12,
+              color: colors.textSecondary,
               fontWeight: '500',
+              textAlign: 'center',
             }}>
-              Emploi du temps
+              Emploi
             </Text>
           </TouchableOpacity>
+          
           <View style={{
             width: 1,
-            backgroundColor: C.border,
+            backgroundColor: colors.border,
           }} />
+          
           <TouchableOpacity
             activeOpacity={0.7}
+            onPress={() => goToClassDetail(item.id)}
             style={{
               flex: 1,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8,
-              paddingVertical: 12,
+              gap: isSmallScreen ? 4 : 6,
+              paddingVertical: isSmallScreen ? 10 : 12,
+              paddingHorizontal: 4,
             }}
           >
-            <Feather name="users" size={16} color={C.textMuted} />
+            <Feather name="users" size={isSmallScreen ? 14 : 16} color={colors.textSecondary} />
             <Text style={{
-              fontSize: 12,
-              color: C.textMuted,
+              fontSize: isSmallScreen ? 10 : 12,
+              color: colors.textSecondary,
               fontWeight: '500',
+              textAlign: 'center',
             }}>
               Liste
             </Text>
@@ -374,13 +404,14 @@ export const TeacherClassesScreen: React.FC = () => {
     );
   };
 
+  // ─── RENDU ───
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
+      {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
       <LinearGradient
-        colors={['#1E1B4B', '#312E81', '#4F46E5']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -391,12 +422,16 @@ export const TeacherClassesScreen: React.FC = () => {
           borderBottomRightRadius: 28,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
           <View>
             <Text style={{
               fontSize: 12,
               fontWeight: '700',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
@@ -418,7 +453,7 @@ export const TeacherClassesScreen: React.FC = () => {
             gap: 8,
           }}>
             <View style={{
-              backgroundColor: 'rgba(255,255,255,0.12)',
+              backgroundColor: 'rgba(255,255,255,0.15)',
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 8,
@@ -450,7 +485,7 @@ export const TeacherClassesScreen: React.FC = () => {
           ].map((stat) => (
             <View key={stat.label} style={{
               flex: 1,
-              backgroundColor: 'rgba(255,255,255,0.06)',
+              backgroundColor: 'rgba(255,255,255,0.12)',
               borderRadius: 12,
               paddingVertical: 10,
               paddingHorizontal: 14,
@@ -462,11 +497,11 @@ export const TeacherClassesScreen: React.FC = () => {
                 width: 32,
                 height: 32,
                 borderRadius: 10,
-                backgroundColor: 'rgba(255,255,255,0.08)',
+                backgroundColor: 'rgba(255,255,255,0.15)',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-                <Feather name={stat.icon as any} size={16} color="rgba(255,255,255,0.6)" />
+                <Feather name={stat.icon as any} size={16} color="rgba(255,255,255,0.8)" />
               </View>
               <View>
                 <Text style={{
@@ -490,7 +525,7 @@ export const TeacherClassesScreen: React.FC = () => {
         </View>
       </LinearGradient>
 
-      {/* ─── Liste des classes ────────────────────────────────────────────────── */}
+      {/* ─── LISTE DES CLASSES ─── */}
       <FlatList
         data={classes}
         keyExtractor={(item) => item.id}
@@ -498,7 +533,11 @@ export const TeacherClassesScreen: React.FC = () => {
         contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         ListHeaderComponent={
           <View style={{
@@ -510,7 +549,7 @@ export const TeacherClassesScreen: React.FC = () => {
             <Text style={{
               fontSize: 11,
               fontWeight: '700',
-              color: C.textMuted,
+              color: colors.textMuted,
               textTransform: 'uppercase',
               letterSpacing: 1.2,
             }}>
@@ -519,7 +558,7 @@ export const TeacherClassesScreen: React.FC = () => {
             <TouchableOpacity activeOpacity={0.7}>
               <Text style={{
                 fontSize: 12,
-                color: C.accentDim,
+                color: colors.primary,
                 fontWeight: '600',
               }}>
                 Voir tout

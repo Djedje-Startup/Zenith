@@ -10,37 +10,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Eleve {
   id: string;
   nom: string;
@@ -61,7 +36,9 @@ interface ClassDetail {
   anneeScolaire: string;
 }
 
-// ─── Données Mock ────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_CLASS_DETAIL: ClassDetail = {
   id: '1',
   nom: '3ème A',
@@ -79,12 +56,15 @@ const MOCK_CLASS_DETAIL: ClassDetail = {
   ],
 };
 
-// ─── Composant principal ──────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const TeacherClassDetailScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [classDetail] = useState(MOCK_CLASS_DETAIL);
   const [activeTab, setActiveTab] = useState<'eleves' | 'notes' | 'presences'>('eleves');
-  const [searchQuery, setSearchQuery] = useState('');
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -92,36 +72,67 @@ export const TeacherClassDetailScreen: React.FC = () => {
   };
 
   const getMoyenneColor = (moyenne?: number) => {
-    if (!moyenne) return C.textMuted;
-    if (moyenne >= 16) return C.green;
-    if (moyenne >= 12) return C.amber;
-    return C.red;
+    if (!moyenne) return colors.textMuted;
+    if (moyenne >= 16) return colors.success;
+    if (moyenne >= 12) return colors.warning;
+    return colors.error;
   };
 
   const getInitials = (nom: string, prenoms: string) => {
     return `${prenoms[0]}${nom[0]}`.toUpperCase();
   };
 
-  const tabs = [
+  const goBack = () => {
+    navigation.goBack();
+  };
+
+  const goToGradeEntry = () => {
+    navigation.navigate('TeacherGradeEntry', { 
+      classeId: classDetail.id, 
+      className: classDetail.nom 
+    });
+  };
+
+  const goToAttendance = () => {
+    navigation.navigate('TeacherAttendance', { 
+      classeId: classDetail.id, 
+      className: classDetail.nom 
+    });
+  };
+
+  // ✅ Correction : chaque tab a la même structure avec 'count' facultatif
+  interface Tab {
+    key: 'eleves' | 'notes' | 'presences';
+    label: string;
+    icon: keyof typeof Feather.glyphMap;
+    count?: number;
+  }
+
+  const tabs: Tab[] = [
     { key: 'eleves', label: 'Élèves', icon: 'users', count: classDetail.eleves.length },
     { key: 'notes', label: 'Notes', icon: 'edit-3' },
     { key: 'presences', label: 'Présences', icon: 'check-square' },
-  ] as const;
+  ];
 
+  // ─── RENDU ───
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* ─── Header Premium ──────────────────────────────────────────────────── */}
+        {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
         <LinearGradient
-          colors={['#1E1B4B', '#312E81', '#4F46E5']}
+          colors={[colors.primary, colors.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -135,6 +146,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
           {/* Navigation retour */}
           <TouchableOpacity 
             activeOpacity={0.7}
+            onPress={goBack}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -153,12 +165,16 @@ export const TeacherClassDetailScreen: React.FC = () => {
           </TouchableOpacity>
 
           {/* Titre et infos */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+          }}>
             <View>
               <Text style={{
                 fontSize: 12,
                 fontWeight: '700',
-                color: 'rgba(255,255,255,0.5)',
+                color: 'rgba(255,255,255,0.6)',
                 letterSpacing: 1.5,
                 textTransform: 'uppercase',
               }}>
@@ -173,7 +189,12 @@ export const TeacherClassDetailScreen: React.FC = () => {
               }}>
                 {classDetail.nom}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                marginTop: 4,
+              }}>
                 <Text style={{
                   fontSize: 13,
                   color: 'rgba(255,255,255,0.6)',
@@ -195,7 +216,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
               </View>
             </View>
             <View style={{
-              backgroundColor: 'rgba(255,255,255,0.12)',
+              backgroundColor: 'rgba(255,255,255,0.15)',
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 8,
@@ -223,7 +244,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
             ].map((stat) => (
               <View key={stat.label} style={{
                 flex: 1,
-                backgroundColor: 'rgba(255,255,255,0.06)',
+                backgroundColor: 'rgba(255,255,255,0.12)',
                 borderRadius: 12,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
@@ -235,16 +256,16 @@ export const TeacherClassDetailScreen: React.FC = () => {
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  backgroundColor: 'rgba(255,255,255,0.15)',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                  <Feather name={stat.icon as any} size={16} color="rgba(255,255,255,0.6)" />
+                  <Feather name={stat.icon as any} size={16} color="rgba(255,255,255,0.8)" />
                 </View>
                 <View>
                   <Text style={{
                     fontSize: 10,
-                    color: 'rgba(255,255,255,0.4)',
+                    color: 'rgba(255,255,255,0.5)',
                     textTransform: 'uppercase',
                     letterSpacing: 0.5,
                   }}>
@@ -274,7 +295,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
           </View>
         </LinearGradient>
 
-        {/* ─── Onglets ────────────────────────────────────────────────────────── */}
+        {/* ─── ONGLETS ─── */}
         <View style={{
           flexDirection: 'row',
           paddingHorizontal: 18,
@@ -297,20 +318,20 @@ export const TeacherClassDetailScreen: React.FC = () => {
                   paddingVertical: 12,
                   paddingHorizontal: 12,
                   borderRadius: 14,
-                  backgroundColor: isActive ? C.accent : C.surface,
+                  backgroundColor: isActive ? colors.primary : colors.surface,
                   borderWidth: 1,
-                  borderColor: isActive ? C.accent : C.border,
+                  borderColor: isActive ? colors.primary : colors.border,
                 }}
               >
                 <Feather 
                   name={tab.icon as any} 
                   size={16} 
-                  color={isActive ? '#FFFFFF' : C.textMuted} 
+                  color={isActive ? '#FFFFFF' : colors.textMuted} 
                 />
                 <Text style={{
                   fontSize: 12,
                   fontWeight: '600',
-                  color: isActive ? '#FFFFFF' : C.textSecondary,
+                  color: isActive ? '#FFFFFF' : colors.textSecondary,
                 }}>
                   {tab.label}
                   {tab.count !== undefined && ` (${tab.count})`}
@@ -320,34 +341,34 @@ export const TeacherClassDetailScreen: React.FC = () => {
           })}
         </View>
 
-        {/* ─── Contenu ────────────────────────────────────────────────────────── */}
+        {/* ─── CONTENU ─── */}
         <View style={{ paddingHorizontal: 18, paddingTop: 18 }}>
 
-          {/* ─── ÉLÈVES ────────────────────────────────────────────────────────── */}
+          {/* ─── ÉLÈVES ─── */}
           {activeTab === 'eleves' && (
             <View>
               {/* Barre de recherche */}
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: C.surface,
+                backgroundColor: colors.surface,
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
                 paddingHorizontal: 14,
                 marginBottom: 16,
               }}>
-                <Feather name="search" size={18} color={C.textMuted} />
+                <Feather name="search" size={18} color={colors.textMuted} />
                 <Text style={{
                   flex: 1,
                   paddingVertical: 12,
                   paddingHorizontal: 10,
                   fontSize: 14,
-                  color: C.textSecondary,
+                  color: colors.textSecondary,
                 }}>
                   Rechercher un élève...
                 </Text>
-                <Feather name="filter" size={18} color={C.textMuted} />
+                <Feather name="filter" size={18} color={colors.textMuted} />
               </View>
 
               {/* Liste des élèves */}
@@ -360,10 +381,10 @@ export const TeacherClassDetailScreen: React.FC = () => {
                   <View
                     key={eleve.id}
                     style={{
-                      backgroundColor: C.surface,
+                      backgroundColor: colors.surface,
                       borderRadius: 16,
                       borderWidth: 1,
-                      borderColor: isTop ? `${C.accent}30` : C.border,
+                      borderColor: isTop ? `${colors.primary}30` : colors.border,
                       marginBottom: 10,
                       padding: 14,
                       flexDirection: 'row',
@@ -371,10 +392,14 @@ export const TeacherClassDetailScreen: React.FC = () => {
                       justifyContent: 'space-between',
                     }}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}>
                       {/* Avatar */}
                       <LinearGradient
-                        colors={isTop ? ['#4F46E5', '#7C3AED'] : ['#1E293B', '#334155']}
+                        colors={isTop ? [colors.primary, colors.secondary] : [colors.surfaceElevated, colors.surfaceElevated]}
                         style={{
                           width: 44,
                           height: 44,
@@ -386,25 +411,29 @@ export const TeacherClassDetailScreen: React.FC = () => {
                         <Text style={{
                           fontSize: 15,
                           fontWeight: '700',
-                          color: isTop ? '#C7D2FE' : C.textMuted,
+                          color: isTop ? '#FFFFFF' : colors.textMuted,
                         }}>
                           {getInitials(eleve.nom, eleve.prenoms)}
                         </Text>
                       </LinearGradient>
 
                       <View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}>
                           <Text style={{
                             fontSize: 15,
                             fontWeight: '600',
-                            color: C.textPrimary,
+                            color: colors.text,
                             letterSpacing: -0.2,
                           }}>
                             {eleve.prenoms} {eleve.nom}
                           </Text>
                           {isTop && (
                             <View style={{
-                              backgroundColor: C.accentBg,
+                              backgroundColor: colors.primaryBg,
                               borderRadius: 6,
                               paddingHorizontal: 6,
                               paddingVertical: 2,
@@ -412,7 +441,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
                               <Text style={{
                                 fontSize: 8,
                                 fontWeight: '700',
-                                color: C.accentDim,
+                                color: colors.primary,
                                 letterSpacing: 0.5,
                               }}>
                                 TOP
@@ -421,7 +450,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
                           )}
                           {isBottom && (
                             <View style={{
-                              backgroundColor: C.redBg,
+                              backgroundColor: colors.error + '15',
                               borderRadius: 6,
                               paddingHorizontal: 6,
                               paddingVertical: 2,
@@ -429,7 +458,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
                               <Text style={{
                                 fontSize: 8,
                                 fontWeight: '700',
-                                color: C.red,
+                                color: colors.error,
                                 letterSpacing: 0.5,
                               }}>
                                 À AMÉLIORER
@@ -439,7 +468,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
                         </View>
                         <Text style={{
                           fontSize: 11,
-                          color: C.textMuted,
+                          color: colors.textMuted,
                           marginTop: 2,
                         }}>
                           Matricule: {eleve.matricule}
@@ -459,7 +488,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
                         </Text>
                         <Text style={{
                           fontSize: 9,
-                          color: C.textMuted,
+                          color: colors.textMuted,
                           textTransform: 'uppercase',
                           letterSpacing: 0.5,
                         }}>
@@ -473,14 +502,14 @@ export const TeacherClassDetailScreen: React.FC = () => {
             </View>
           )}
 
-          {/* ─── NOTES ────────────────────────────────────────────────────────── */}
+          {/* ─── NOTES ─── */}
           {activeTab === 'notes' && (
             <View>
               <View style={{
-                backgroundColor: C.surface,
+                backgroundColor: colors.surface,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
                 padding: 20,
                 alignItems: 'center',
               }}>
@@ -488,24 +517,24 @@ export const TeacherClassDetailScreen: React.FC = () => {
                   width: 64,
                   height: 64,
                   borderRadius: 18,
-                  backgroundColor: C.accentBg,
+                  backgroundColor: colors.primaryBg,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 12,
                 }}>
-                  <Feather name="edit-3" size={28} color={C.accentDim} />
+                  <Feather name="edit-3" size={28} color={colors.primary} />
                 </View>
                 <Text style={{
                   fontSize: 18,
                   fontWeight: '700',
-                  color: C.textPrimary,
+                  color: colors.text,
                   marginBottom: 4,
                 }}>
                   Saisie des notes
                 </Text>
                 <Text style={{
                   fontSize: 13,
-                  color: C.textMuted,
+                  color: colors.textMuted,
                   textAlign: 'center',
                   marginBottom: 16,
                 }}>
@@ -513,17 +542,18 @@ export const TeacherClassDetailScreen: React.FC = () => {
                 </Text>
                 <TouchableOpacity
                   activeOpacity={0.8}
+                  onPress={goToGradeEntry}
                   style={{
-                    backgroundColor: C.accent,
+                    backgroundColor: colors.primary,
                     borderRadius: 14,
                     paddingHorizontal: 24,
                     paddingVertical: 14,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 10,
-                    shadowColor: C.accent,
+                    shadowColor: colors.primary,
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
+                    shadowOpacity: 0.25,
                     shadowRadius: 12,
                     elevation: 6,
                   }}
@@ -544,7 +574,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
                 <Text style={{
                   fontSize: 11,
                   fontWeight: '700',
-                  color: C.textMuted,
+                  color: colors.textMuted,
                   textTransform: 'uppercase',
                   letterSpacing: 1.2,
                   marginBottom: 10,
@@ -552,15 +582,15 @@ export const TeacherClassDetailScreen: React.FC = () => {
                   Dernières évaluations
                 </Text>
                 <View style={{
-                  backgroundColor: C.surface,
+                  backgroundColor: colors.surface,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: C.border,
+                  borderColor: colors.border,
                   padding: 16,
                 }}>
                   <Text style={{
                     fontSize: 13,
-                    color: C.textMuted,
+                    color: colors.textMuted,
                     textAlign: 'center',
                   }}>
                     Aucune évaluation enregistrée
@@ -570,14 +600,14 @@ export const TeacherClassDetailScreen: React.FC = () => {
             </View>
           )}
 
-          {/* ─── PRÉSENCES ────────────────────────────────────────────────────── */}
+          {/* ─── PRÉSENCES ─── */}
           {activeTab === 'presences' && (
             <View>
               <View style={{
-                backgroundColor: C.surface,
+                backgroundColor: colors.surface,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
                 padding: 20,
                 alignItems: 'center',
               }}>
@@ -585,24 +615,24 @@ export const TeacherClassDetailScreen: React.FC = () => {
                   width: 64,
                   height: 64,
                   borderRadius: 18,
-                  backgroundColor: C.tealBg,
+                  backgroundColor: colors.success + '15',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 12,
                 }}>
-                  <Feather name="check-square" size={28} color={C.teal} />
+                  <Feather name="check-square" size={28} color={colors.success} />
                 </View>
                 <Text style={{
                   fontSize: 18,
                   fontWeight: '700',
-                  color: C.textPrimary,
+                  color: colors.text,
                   marginBottom: 4,
                 }}>
                   Gestion des présences
                 </Text>
                 <Text style={{
                   fontSize: 13,
-                  color: C.textMuted,
+                  color: colors.textMuted,
                   textAlign: 'center',
                   marginBottom: 16,
                 }}>
@@ -610,17 +640,18 @@ export const TeacherClassDetailScreen: React.FC = () => {
                 </Text>
                 <TouchableOpacity
                   activeOpacity={0.8}
+                  onPress={goToAttendance}
                   style={{
-                    backgroundColor: C.teal,
+                    backgroundColor: colors.success,
                     borderRadius: 14,
                     paddingHorizontal: 24,
                     paddingVertical: 14,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 10,
-                    shadowColor: C.teal,
+                    shadowColor: colors.success,
                     shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
+                    shadowOpacity: 0.25,
                     shadowRadius: 12,
                     elevation: 6,
                   }}
@@ -643,19 +674,23 @@ export const TeacherClassDetailScreen: React.FC = () => {
                 marginTop: 16,
               }}>
                 {[
-                  { label: 'Présents', value: '28', color: C.green, icon: 'user-check' },
-                  { label: 'Absents', value: '4', color: C.red, icon: 'user-x' },
+                  { label: 'Présents', value: '28', color: colors.success, icon: 'user-check' },
+                  { label: 'Absents', value: '4', color: colors.error, icon: 'user-x' },
                 ].map((stat) => (
                   <View key={stat.label} style={{
                     flex: 1,
-                    backgroundColor: C.surface,
+                    backgroundColor: colors.surface,
                     borderRadius: 14,
                     borderWidth: 1,
-                    borderColor: C.border,
+                    borderColor: colors.border,
                     padding: 14,
                     alignItems: 'center',
                   }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}>
                       <Feather name={stat.icon as any} size={14} color={stat.color} />
                       <Text style={{
                         fontSize: 20,
@@ -667,7 +702,7 @@ export const TeacherClassDetailScreen: React.FC = () => {
                     </View>
                     <Text style={{
                       fontSize: 10,
-                      color: C.textMuted,
+                      color: colors.textMuted,
                       marginTop: 2,
                       textTransform: 'uppercase',
                       letterSpacing: 0.5,

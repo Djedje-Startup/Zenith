@@ -12,37 +12,11 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Invoice {
   id: string;
   numero: string;
@@ -55,7 +29,9 @@ interface Invoice {
   paiements?: { id: string; montant: number; date: string; mode: string }[];
 }
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_INVOICES: Invoice[] = [
   {
     id: '1',
@@ -95,70 +71,29 @@ const MOCK_INVOICES: Invoice[] = [
   },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const getStatutConfig = (statut: string) => {
-  switch (statut) {
-    case 'PAYEE':
-      return { label: 'Payée', color: C.green, bg: C.greenBg, icon: 'check-circle' as const };
-    case 'PARTIELLE':
-      return { label: 'Partiel', color: C.amber, bg: C.amberBg, icon: 'clock' as const };
-    case 'EN_RETARD':
-      return { label: 'En retard', color: C.red, bg: C.redBg, icon: 'alert-triangle' as const };
-    default:
-      return { label: 'En attente', color: C.textMuted, bg: C.surfaceAlt, icon: 'clock' as const };
-  }
-};
-
-const formatMontant = (montant: number) => `${montant.toLocaleString()} FCFA`;
-
-// ─── Composants ──────────────────────────────────────────────────────────────
-const SectionTitle = ({ children }: { children: string }) => (
-  <Text style={{
-    fontSize: 11,
-    fontWeight: '700',
-    color: C.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 12,
-  }}>
-    {children}
-  </Text>
-);
-
-const StatutBadge = ({ statut }: { statut: string }) => {
-  const config = getStatutConfig(statut);
-  return (
-    <View style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: config.bg,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderWidth: 1,
-      borderColor: config.color + '30',
-    }}>
-      <Feather name={config.icon} size={12} color={config.color} />
-      <Text style={{
-        fontSize: 10,
-        fontWeight: '700',
-        color: config.color,
-        letterSpacing: 0.3,
-        marginLeft: 4,
-      }}>
-        {config.label}
-      </Text>
-    </View>
-  );
-};
-
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const StudentPaymentsScreen: React.FC = () => {
+  const { colors } = useTheme();
   const [invoices, setInvoices] = useState(MOCK_INVOICES);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Animations pour les cartes
+  // ─── Configuration des statuts ───
+  const getStatutConfig = (statut: string) => {
+    const configs: Record<string, { label: string; color: string; bg: string; icon: keyof typeof Feather.glyphMap }> = {
+      PAYEE: { label: 'Payée', color: colors.success, bg: colors.success + '15', icon: 'check-circle' },
+      PARTIELLE: { label: 'Partiel', color: colors.warning, bg: colors.warning + '15', icon: 'clock' },
+      EN_RETARD: { label: 'En retard', color: colors.error, bg: colors.error + '15', icon: 'alert-triangle' },
+      EMISE: { label: 'En attente', color: colors.textMuted, bg: colors.surfaceElevated, icon: 'clock' },
+    };
+    return configs[statut] || configs.EMISE;
+  };
+
+  const formatMontant = (montant: number) => `${montant.toLocaleString()} FCFA`;
+
+  // ─── Animations ───
   const cardAnimations = invoices.map(() => ({
     translateY: useRef(new Animated.Value(20)).current,
     opacity: useRef(new Animated.Value(0)).current,
@@ -203,7 +138,7 @@ export const StudentPaymentsScreen: React.FC = () => {
   const totalPaye = invoices.reduce((sum, inv) => sum + inv.montantPaye, 0);
   const pendingCount = invoices.filter(inv => inv.statut !== 'PAYEE').length;
 
-  // Animation d'expansion
+  // ─── Animation d'expansion ───
   const expandAnimations = useRef<{ [key: string]: Animated.Value }>({}).current;
 
   const getExpandAnimation = (id: string) => {
@@ -225,13 +160,56 @@ export const StudentPaymentsScreen: React.FC = () => {
     });
   }, [expandedId]);
 
-  return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+  // ─── Composant SectionTitle ───
+  const SectionTitle = ({ children }: { children: string }) => (
+    <Text style={{
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+      marginBottom: 12,
+    }}>
+      {children}
+    </Text>
+  );
 
-      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
+  // ─── Composant StatutBadge ───
+  const StatutBadge = ({ statut }: { statut: string }) => {
+    const config = getStatutConfig(statut);
+    return (
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: config.bg,
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: config.color + '30',
+      }}>
+        <Feather name={config.icon} size={12} color={config.color} />
+        <Text style={{
+          fontSize: 10,
+          fontWeight: '700',
+          color: config.color,
+          letterSpacing: 0.3,
+          marginLeft: 4,
+        }}>
+          {config.label}
+        </Text>
+      </View>
+    );
+  };
+
+  // ─── RENDU ───
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+      {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
       <LinearGradient
-        colors={['#1E1B4B', '#312E81', '#4F46E5']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -242,12 +220,16 @@ export const StudentPaymentsScreen: React.FC = () => {
           borderBottomRightRadius: 28,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
           <View>
             <Text style={{
               fontSize: 12,
               fontWeight: '700',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
@@ -264,7 +246,7 @@ export const StudentPaymentsScreen: React.FC = () => {
             </Text>
           </View>
           <View style={{
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.2)',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -284,7 +266,7 @@ export const StudentPaymentsScreen: React.FC = () => {
               fontWeight: '700',
               color: '#FFFFFF',
             }}>
-              {pendingCount}
+              {String(pendingCount)}
             </Text>
           </View>
         </View>
@@ -295,12 +277,12 @@ export const StudentPaymentsScreen: React.FC = () => {
           marginTop: 16,
         }}>
           {[
-            { label: 'Total dû', value: formatMontant(totalDu), icon: 'credit-card' as const, color: C.accent },
-            { label: 'Total payé', value: formatMontant(totalPaye), icon: 'check-circle' as const, color: C.green },
+            { label: 'Total dû', value: formatMontant(totalDu), icon: 'credit-card' as const, color: colors.primary },
+            { label: 'Total payé', value: formatMontant(totalPaye), icon: 'check-circle' as const, color: colors.success },
           ].map((stat, index) => (
             <View key={stat.label} style={{
               flex: 1,
-              backgroundColor: 'rgba(255,255,255,0.06)',
+              backgroundColor: 'rgba(255,255,255,0.12)',
               borderRadius: 12,
               paddingVertical: 10,
               paddingHorizontal: 14,
@@ -312,7 +294,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                 width: 32,
                 height: 32,
                 borderRadius: 10,
-                backgroundColor: 'rgba(255,255,255,0.08)',
+                backgroundColor: 'rgba(255,255,255,0.15)',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 10,
@@ -322,7 +304,7 @@ export const StudentPaymentsScreen: React.FC = () => {
               <View>
                 <Text style={{
                   fontSize: 9,
-                  color: 'rgba(255,255,255,0.4)',
+                  color: 'rgba(255,255,255,0.5)',
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                 }}>
@@ -341,14 +323,22 @@ export const StudentPaymentsScreen: React.FC = () => {
         </View>
       </LinearGradient>
 
-      {/* ─── Liste des factures ────────────────────────────────────────────────── */}
+      {/* ─── LISTE DES FACTURES ─── */}
       <FlatList
         data={invoices}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
-        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 20, paddingBottom: 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: 18,
+          paddingTop: 20,
+          paddingBottom: 40,
+        }}
         showsVerticalScrollIndicator={false}
         renderItem={({ item, index }) => {
           const isExpanded = expandedId === item.id;
@@ -365,11 +355,12 @@ export const StudentPaymentsScreen: React.FC = () => {
                 opacity: anim.opacity,
               }}
             >
+              {/* ✅ CARTE CLAIRE */}
               <View style={{
-                backgroundColor: C.surface,
+                backgroundColor: colors.surface,
                 borderRadius: 18,
                 borderWidth: 1,
-                borderColor: isExpanded ? C.accent : C.border,
+                borderColor: isExpanded ? colors.primary : colors.border,
                 overflow: 'hidden',
               }}>
                 {/* ─── En-tête de la carte ────────────────────────────────────── */}
@@ -378,12 +369,16 @@ export const StudentPaymentsScreen: React.FC = () => {
                   onPress={() => setExpandedId(isExpanded ? null : item.id)}
                   style={{ padding: 16 }}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}>
                     <View style={{ flex: 1, marginRight: 10 }}>
                       <Text style={{
                         fontSize: 16,
                         fontWeight: '700',
-                        color: C.textPrimary,
+                        color: colors.text,
                         letterSpacing: -0.2,
                         marginBottom: 2,
                       }}>
@@ -391,7 +386,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                       </Text>
                       <Text style={{
                         fontSize: 12,
-                        color: C.textMuted,
+                        color: colors.textMuted,
                       }}>
                         N° {item.numero}
                       </Text>
@@ -402,7 +397,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                   {/* ─── Barre de progression ────────────────────────────────── */}
                   <View style={{
                     height: 4,
-                    backgroundColor: C.border,
+                    backgroundColor: colors.border,
                     borderRadius: 2,
                     marginTop: 14,
                     overflow: 'hidden',
@@ -410,7 +405,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                     <View style={{
                       width: `${Math.min(100, progress)}%`,
                       height: '100%',
-                      backgroundColor: progress >= 100 ? C.green : C.accent,
+                      backgroundColor: progress >= 100 ? colors.success : colors.primary,
                       borderRadius: 2,
                     }} />
                   </View>
@@ -424,7 +419,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                     <View>
                       <Text style={{
                         fontSize: 10,
-                        color: C.textMuted,
+                        color: colors.textMuted,
                         textTransform: 'uppercase',
                         letterSpacing: 0.5,
                       }}>
@@ -433,7 +428,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                       <Text style={{
                         fontSize: 16,
                         fontWeight: '700',
-                        color: C.textPrimary,
+                        color: colors.text,
                       }}>
                         {formatMontant(item.montant)}
                       </Text>
@@ -441,7 +436,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={{
                         fontSize: 10,
-                        color: C.textMuted,
+                        color: colors.textMuted,
                         textTransform: 'uppercase',
                         letterSpacing: 0.5,
                       }}>
@@ -450,7 +445,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                       <Text style={{
                         fontSize: 16,
                         fontWeight: '700',
-                        color: item.solde > 0 ? C.amber : C.green,
+                        color: item.solde > 0 ? colors.warning : colors.success,
                       }}>
                         {item.solde > 0 ? formatMontant(item.solde) : 'Complet'}
                       </Text>
@@ -465,7 +460,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                     <Feather
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={18}
-                      color={C.textMuted}
+                      color={colors.textMuted}
                     />
                   </View>
                 </TouchableOpacity>
@@ -485,7 +480,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                     paddingHorizontal: 16,
                     paddingBottom: 16,
                     borderTopWidth: 1,
-                    borderTopColor: C.border,
+                    borderTopColor: colors.border,
                     paddingTop: 14,
                   }}>
                     {/* Détails paiement */}
@@ -494,13 +489,13 @@ export const StudentPaymentsScreen: React.FC = () => {
                       justifyContent: 'space-between',
                       marginBottom: 8,
                     }}>
-                      <Text style={{ fontSize: 12, color: C.textMuted }}>
+                      <Text style={{ fontSize: 12, color: colors.textMuted }}>
                         Déjà payé
                       </Text>
                       <Text style={{
                         fontSize: 13,
                         fontWeight: '600',
-                        color: C.green,
+                        color: colors.success,
                       }}>
                         {formatMontant(item.montantPaye)}
                       </Text>
@@ -512,15 +507,15 @@ export const StudentPaymentsScreen: React.FC = () => {
                       marginBottom: 12,
                       paddingBottom: 12,
                       borderBottomWidth: 1,
-                      borderBottomColor: C.border,
+                      borderBottomColor: colors.border,
                     }}>
-                      <Text style={{ fontSize: 12, color: C.textMuted }}>
+                      <Text style={{ fontSize: 12, color: colors.textMuted }}>
                         Date d'échéance
                       </Text>
                       <Text style={{
                         fontSize: 13,
                         fontWeight: '500',
-                        color: C.textSecondary,
+                        color: colors.textSecondary,
                       }}>
                         {item.dateEcheance}
                       </Text>
@@ -532,7 +527,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                         <Text style={{
                           fontSize: 10,
                           fontWeight: '700',
-                          color: C.textMuted,
+                          color: colors.textMuted,
                           textTransform: 'uppercase',
                           letterSpacing: 0.8,
                           marginBottom: 8,
@@ -543,7 +538,7 @@ export const StudentPaymentsScreen: React.FC = () => {
                           <View key={paiement.id} style={{
                             flexDirection: 'row',
                             justifyContent: 'space-between',
-                            backgroundColor: C.surfaceAlt,
+                            backgroundColor: colors.surfaceElevated,
                             borderRadius: 10,
                             paddingHorizontal: 12,
                             paddingVertical: 8,
@@ -551,14 +546,14 @@ export const StudentPaymentsScreen: React.FC = () => {
                           }}>
                             <Text style={{
                               fontSize: 11,
-                              color: C.textMuted,
+                              color: colors.textMuted,
                             }}>
                               {paiement.date} · {paiement.mode}
                             </Text>
                             <Text style={{
                               fontSize: 12,
                               fontWeight: '600',
-                              color: C.green,
+                              color: colors.success,
                             }}>
                               +{formatMontant(paiement.montant)}
                             </Text>
@@ -573,15 +568,15 @@ export const StudentPaymentsScreen: React.FC = () => {
                         activeOpacity={0.8}
                         onPress={() => handlePay(item)}
                         style={{
-                          backgroundColor: C.accent,
+                          backgroundColor: colors.primary,
                           borderRadius: 14,
                           paddingVertical: 14,
                           flexDirection: 'row',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          shadowColor: C.accent,
+                          shadowColor: colors.primary,
                           shadowOffset: { width: 0, height: 4 },
-                          shadowOpacity: 0.3,
+                          shadowOpacity: 0.25,
                           shadowRadius: 12,
                           elevation: 6,
                         }}
@@ -606,16 +601,16 @@ export const StudentPaymentsScreen: React.FC = () => {
         ListHeaderComponent={
           <View style={{ marginBottom: 16 }}>
             <SectionTitle>
-              {invoices.length} facture{invoices.length > 1 ? 's' : ''}
+              {String(invoices.length)} facture{invoices.length > 1 ? 's' : ''}
             </SectionTitle>
           </View>
         }
         ListEmptyComponent={
           <View style={{
-            backgroundColor: C.surface,
+            backgroundColor: colors.surface,
             borderRadius: 20,
             borderWidth: 1,
-            borderColor: C.border,
+            borderColor: colors.border,
             padding: 40,
             alignItems: 'center',
           }}>
@@ -623,23 +618,23 @@ export const StudentPaymentsScreen: React.FC = () => {
               width: 80,
               height: 80,
               borderRadius: 24,
-              backgroundColor: C.accentBg,
+              backgroundColor: colors.primaryBg,
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 16,
             }}>
-              <Feather name="credit-card" size={36} color={C.accentDim} />
+              <Feather name="credit-card" size={36} color={colors.primary} />
             </View>
             <Text style={{
               fontSize: 18,
               fontWeight: '700',
-              color: C.textPrimary,
+              color: colors.text,
             }}>
               Aucune facture
             </Text>
             <Text style={{
               fontSize: 13,
-              color: C.textMuted,
+              color: colors.textMuted,
               textAlign: 'center',
               marginTop: 4,
             }}>

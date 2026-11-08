@@ -12,38 +12,12 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native'; // ✅ Ajout
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme'; // ✅ Thème centralisé
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Club {
   id: string;
   nom: string;
@@ -56,13 +30,15 @@ interface Club {
   activites?: string[];
 }
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_CLUBS: Club[] = [
   {
     id: '1',
     nom: 'Club Informatique',
     description: 'Découverte du code, de la robotique et des nouvelles technologies',
-    couleur: '#4F46E5',
+    couleur: '#F97316', // ✅ Orange Zenith
     nbMembres: 45,
     isMember: true,
     role: 'Membre',
@@ -73,7 +49,7 @@ const MOCK_CLUBS: Club[] = [
     id: '2',
     nom: 'Club Sportif',
     description: 'Football, basket, athlétisme et autres activités sportives',
-    couleur: '#059669',
+    couleur: '#10B981', // ✅ Success
     nbMembres: 78,
     isMember: false,
     prochainEvent: 'Tournoi interclasses - 15 Nov 2025',
@@ -83,7 +59,7 @@ const MOCK_CLUBS: Club[] = [
     id: '3',
     nom: 'Club Culturel',
     description: 'Théâtre, danse, musique et arts plastiques',
-    couleur: '#7C3AED',
+    couleur: '#8B5CF6', // ✅ Violet Zenith
     nbMembres: 32,
     isMember: false,
     prochainEvent: 'Soirée culturelle - 08 Déc 2025',
@@ -93,7 +69,7 @@ const MOCK_CLUBS: Club[] = [
     id: '4',
     nom: 'Club Scientifique',
     description: 'Expériences scientifiques, astronomie et découvertes',
-    couleur: '#0D9488',
+    couleur: '#3B82F6', // ✅ Info
     nbMembres: 24,
     isMember: false,
     prochainEvent: 'Expo-sciences - 20 Jan 2026',
@@ -101,42 +77,17 @@ const MOCK_CLUBS: Club[] = [
   },
 ];
 
-// ─── Composants ──────────────────────────────────────────────────────────────
-const SectionTitle = ({ children, count }: { children: string; count?: number }) => (
-  <View style={{
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  }}>
-    <Text style={{
-      fontSize: 11,
-      fontWeight: '700',
-      color: C.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 1.2,
-    }}>
-      {children}
-    </Text>
-    {count !== undefined && (
-      <Text style={{
-        fontSize: 11,
-        color: C.textMuted,
-      }}>
-        {count} club{count > 1 ? 's' : ''}
-      </Text>
-    )}
-  </View>
-);
-
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const StudentClubsScreen: React.FC = () => {
-  const navigation = useNavigation<any>(); // ✅ Navigation
+  const { colors } = useTheme(); // ✅ Thème centralisé
+  const navigation = useNavigation<any>();
   const [clubs, setClubs] = useState(MOCK_CLUBS);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'member' | 'available'>('all');
 
-  // Animations pour les cartes
+  // ─── Animations pour les cartes ───
   const cardAnimations = clubs.map(() => ({
     translateY: useRef(new Animated.Value(20)).current,
     opacity: useRef(new Animated.Value(0)).current,
@@ -166,7 +117,6 @@ export const StudentClubsScreen: React.FC = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  // ✅ Navigation vers le détail du club
   const handleClubPress = (clubId: string) => {
     navigation.navigate('StudentClubDetail', { clubId });
   };
@@ -222,6 +172,35 @@ export const StudentClubsScreen: React.FC = () => {
 
   const memberCount = clubs.filter(c => c.isMember).length;
 
+  // ─── Composant SectionTitle ───
+  const SectionTitle = ({ children, count }: { children: string; count?: number }) => (
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    }}>
+      <Text style={{
+        fontSize: 11,
+        fontWeight: '700',
+        color: colors.textMuted,
+        textTransform: 'uppercase',
+        letterSpacing: 1.2,
+      }}>
+        {children}
+      </Text>
+      {count !== undefined && (
+        <Text style={{
+          fontSize: 11,
+          color: colors.textMuted,
+        }}>
+          {count} club{count > 1 ? 's' : ''}
+        </Text>
+      )}
+    </View>
+  );
+
+  // ─── Rendu d'une carte de club ───
   const renderClubCard = ({ item, index }: { item: Club; index: number }) => {
     const isMember = item.isMember || false;
     const anim = cardAnimations[index] || cardAnimations[0];
@@ -236,23 +215,23 @@ export const StudentClubsScreen: React.FC = () => {
       >
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => handleClubPress(item.id)} // ✅ Navigation vers le détail
+          onPress={() => handleClubPress(item.id)}
         >
           <View style={{
-            backgroundColor: C.surface,
+            backgroundColor: colors.surface,
             borderRadius: 18,
             borderWidth: 1,
-            borderColor: isMember ? `${C.green}30` : C.border,
+            borderColor: isMember ? `${colors.success}30` : colors.border,
             overflow: 'hidden',
           }}>
-            {/* ─── Bandeau coloré ──────────────────────────────────────────────── */}
+            {/* ─── Bandeau coloré ─── */}
             <View style={{
               height: 4,
               backgroundColor: item.couleur,
             }} />
 
             <View style={{ padding: 16 }}>
-              {/* ─── En-tête ────────────────────────────────────────────────────── */}
+              {/* ─── En-tête ─── */}
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{
                   width: 48,
@@ -270,7 +249,7 @@ export const StudentClubsScreen: React.FC = () => {
                     <Text style={{
                       fontSize: 16,
                       fontWeight: '700',
-                      color: C.textPrimary,
+                      color: colors.text,
                       letterSpacing: -0.2,
                       flex: 1,
                     }}>
@@ -278,18 +257,18 @@ export const StudentClubsScreen: React.FC = () => {
                     </Text>
                     {isMember && (
                       <View style={{
-                        backgroundColor: C.greenBg,
+                        backgroundColor: `${colors.success}15`,
                         borderRadius: 6,
                         paddingHorizontal: 8,
                         paddingVertical: 2,
                         borderWidth: 1,
-                        borderColor: C.green + '30',
+                        borderColor: `${colors.success}30`,
                         marginLeft: 6,
                       }}>
                         <Text style={{
                           fontSize: 8,
                           fontWeight: '700',
-                          color: C.green,
+                          color: colors.success,
                           textTransform: 'uppercase',
                           letterSpacing: 0.5,
                         }}>
@@ -303,10 +282,10 @@ export const StudentClubsScreen: React.FC = () => {
                     alignItems: 'center',
                     marginTop: 2,
                   }}>
-                    <Feather name="users" size={12} color={C.textMuted} />
+                    <Feather name="users" size={12} color={colors.textMuted} />
                     <Text style={{
                       fontSize: 11,
-                      color: C.textMuted,
+                      color: colors.textMuted,
                       marginLeft: 4,
                     }}>
                       {item.nbMembres} membres
@@ -315,17 +294,17 @@ export const StudentClubsScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* ─── Description ────────────────────────────────────────────────── */}
+              {/* ─── Description ─── */}
               <Text style={{
                 fontSize: 13,
-                color: C.textSecondary,
+                color: colors.textSecondary,
                 lineHeight: 20,
                 marginTop: 12,
               }}>
                 {item.description}
               </Text>
 
-              {/* ─── Activités ───────────────────────────────────────────────────── */}
+              {/* ─── Activités ─── */}
               {item.activites && item.activites.length > 0 && (
                 <View style={{
                   flexDirection: 'row',
@@ -334,18 +313,18 @@ export const StudentClubsScreen: React.FC = () => {
                 }}>
                   {item.activites.map((activite, idx) => (
                     <View key={idx} style={{
-                      backgroundColor: C.accentBg,
+                      backgroundColor: colors.primaryBg,
                       borderRadius: 6,
                       paddingHorizontal: 10,
                       paddingVertical: 4,
                       borderWidth: 1,
-                      borderColor: `${C.accent}25`,
+                      borderColor: `${colors.primary}25`,
                       marginRight: 6,
                       marginBottom: 4,
                     }}>
                       <Text style={{
                         fontSize: 9,
-                        color: C.accentDim,
+                        color: colors.primary,
                         fontWeight: '600',
                         letterSpacing: 0.3,
                       }}>
@@ -356,33 +335,33 @@ export const StudentClubsScreen: React.FC = () => {
                 </View>
               )}
 
-              {/* ─── Prochain événement ──────────────────────────────────────────── */}
+              {/* ─── Prochain événement ─── */}
               {item.prochainEvent && (
                 <View style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: C.surfaceAlt,
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 10,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   marginTop: 12,
                   borderWidth: 1,
-                  borderColor: C.border,
+                  borderColor: colors.border,
                 }}>
                   <View style={{
                     width: 28,
                     height: 28,
                     borderRadius: 8,
-                    backgroundColor: C.amberBg,
+                    backgroundColor: `${colors.warning}15`,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: 10,
                   }}>
-                    <Feather name="calendar" size={14} color={C.amber} />
+                    <Feather name="calendar" size={14} color={colors.warning} />
                   </View>
                   <Text style={{
                     fontSize: 11,
-                    color: C.textSecondary,
+                    color: colors.textSecondary,
                     flex: 1,
                   }}>
                     {item.prochainEvent}
@@ -390,7 +369,7 @@ export const StudentClubsScreen: React.FC = () => {
                 </View>
               )}
 
-              {/* ─── Bouton d'action ────────────────────────────────────────────── */}
+              {/* ─── Bouton d'action ─── */}
               {isMember ? (
                 <TouchableOpacity
                   activeOpacity={0.7}
@@ -402,23 +381,23 @@ export const StudentClubsScreen: React.FC = () => {
                     paddingVertical: 10,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: C.border,
+                    borderColor: colors.border,
                     marginTop: 12,
-                    backgroundColor: C.surfaceAlt,
+                    backgroundColor: colors.surfaceElevated,
                   }}
                 >
-                  <Feather name="check" size={16} color={C.green} />
+                  <Feather name="check" size={16} color={colors.success} />
                   <Text style={{
                     fontSize: 13,
                     fontWeight: '600',
-                    color: C.green,
+                    color: colors.success,
                     marginLeft: 8,
                   }}>
                     Membre
                   </Text>
                   <Text style={{
                     fontSize: 13,
-                    color: C.textMuted,
+                    color: colors.textMuted,
                     marginLeft: 4,
                   }}>
                     · Quitter
@@ -434,9 +413,9 @@ export const StudentClubsScreen: React.FC = () => {
                     justifyContent: 'center',
                     paddingVertical: 10,
                     borderRadius: 12,
-                    backgroundColor: C.accent,
+                    backgroundColor: colors.primary,
                     marginTop: 12,
-                    shadowColor: C.accent,
+                    shadowColor: colors.primary,
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.25,
                     shadowRadius: 12,
@@ -461,13 +440,14 @@ export const StudentClubsScreen: React.FC = () => {
     );
   };
 
+  // ─── RENDU ───
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
+      {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
       <LinearGradient
-        colors={['#1E1B4B', '#312E81', '#4F46E5']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -478,16 +458,20 @@ export const StudentClubsScreen: React.FC = () => {
           borderBottomRightRadius: 28,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
           <View>
             <Text style={{
               fontSize: 12,
               fontWeight: '700',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
-              Vie scolaire
+              🎯 Vie scolaire
             </Text>
             <Text style={{
               fontSize: 24,
@@ -500,7 +484,7 @@ export const StudentClubsScreen: React.FC = () => {
             </Text>
           </View>
           <View style={{
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.2)',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -536,7 +520,7 @@ export const StudentClubsScreen: React.FC = () => {
           ].map((stat, index) => (
             <View key={stat.label} style={{
               flex: 1,
-              backgroundColor: 'rgba(255,255,255,0.06)',
+              backgroundColor: 'rgba(255,255,255,0.12)',
               borderRadius: 12,
               paddingVertical: 10,
               paddingHorizontal: 14,
@@ -548,17 +532,17 @@ export const StudentClubsScreen: React.FC = () => {
                 width: 28,
                 height: 28,
                 borderRadius: 8,
-                backgroundColor: 'rgba(255,255,255,0.08)',
+                backgroundColor: 'rgba(255,255,255,0.15)',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 10,
               }}>
-                <Feather name={stat.icon as any} size={14} color="rgba(255,255,255,0.6)" />
+                <Feather name={stat.icon as any} size={14} color="rgba(255,255,255,0.8)" />
               </View>
               <View>
                 <Text style={{
                   fontSize: 9,
-                  color: 'rgba(255,255,255,0.4)',
+                  color: 'rgba(255,255,255,0.5)',
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                 }}>
@@ -577,11 +561,11 @@ export const StudentClubsScreen: React.FC = () => {
         </View>
       </LinearGradient>
 
-      {/* ─── Filtres ────────────────────────────────────────────────────────── */}
+      {/* ─── FILTRES ─── */}
       <View style={{
-        backgroundColor: C.surface,
+        backgroundColor: colors.surface,
         borderBottomWidth: 1,
-        borderBottomColor: C.border,
+        borderBottomColor: colors.border,
         paddingVertical: 12,
         paddingHorizontal: 18,
       }}>
@@ -602,9 +586,9 @@ export const StudentClubsScreen: React.FC = () => {
                   paddingVertical: 8,
                   paddingHorizontal: 12,
                   borderRadius: 12,
-                  backgroundColor: isActive ? C.accent : C.surfaceAlt,
+                  backgroundColor: isActive ? colors.primary : colors.surfaceElevated,
                   borderWidth: 1,
-                  borderColor: isActive ? C.accent : C.border,
+                  borderColor: isActive ? colors.primary : colors.border,
                   flexDirection: 'row',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -614,12 +598,12 @@ export const StudentClubsScreen: React.FC = () => {
                 <Text style={{
                   fontSize: 12,
                   fontWeight: isActive ? '700' : '600',
-                  color: isActive ? '#FFFFFF' : C.textSecondary,
+                  color: isActive ? '#FFFFFF' : colors.textSecondary,
                 }}>
                   {f.label}
                 </Text>
                 <View style={{
-                  backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : C.border,
+                  backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : colors.border,
                   borderRadius: 6,
                   paddingHorizontal: 6,
                   paddingVertical: 1,
@@ -628,7 +612,7 @@ export const StudentClubsScreen: React.FC = () => {
                   <Text style={{
                     fontSize: 10,
                     fontWeight: '700',
-                    color: isActive ? '#FFFFFF' : C.textMuted,
+                    color: isActive ? '#FFFFFF' : colors.textMuted,
                   }}>
                     {f.count}
                   </Text>
@@ -639,7 +623,7 @@ export const StudentClubsScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* ─── Liste des clubs ────────────────────────────────────────────────── */}
+      {/* ─── LISTE DES CLUBS ─── */}
       <FlatList
         data={filteredClubs}
         keyExtractor={(item) => item.id}
@@ -647,7 +631,11 @@ export const StudentClubsScreen: React.FC = () => {
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 18, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         ListHeaderComponent={
           <SectionTitle count={filteredClubs.length}>
@@ -656,10 +644,10 @@ export const StudentClubsScreen: React.FC = () => {
         }
         ListEmptyComponent={
           <View style={{
-            backgroundColor: C.surface,
+            backgroundColor: colors.surface,
             borderRadius: 20,
             borderWidth: 1,
-            borderColor: C.border,
+            borderColor: colors.border,
             padding: 40,
             alignItems: 'center',
           }}>
@@ -667,23 +655,23 @@ export const StudentClubsScreen: React.FC = () => {
               width: 80,
               height: 80,
               borderRadius: 24,
-              backgroundColor: C.accentBg,
+              backgroundColor: colors.primaryBg,
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 16,
             }}>
-              <Feather name="users" size={36} color={C.accentDim} />
+              <Feather name="users" size={36} color={colors.primary} />
             </View>
             <Text style={{
               fontSize: 18,
               fontWeight: '700',
-              color: C.textPrimary,
+              color: colors.text,
             }}>
               Aucun club trouvé
             </Text>
             <Text style={{
               fontSize: 13,
-              color: C.textMuted,
+              color: colors.textMuted,
               textAlign: 'center',
               marginTop: 4,
             }}>

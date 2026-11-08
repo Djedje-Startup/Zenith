@@ -1,1074 +1,308 @@
 // screens/parent/ParentPaymentsScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
-  RefreshControl,
-  Alert,
   StatusBar,
   Animated,
-  Modal,
-  TextInput,
-  ScrollView,
+  StyleSheet,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../../hooks/useAuth';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { EmptyState } from '../../components/animations/EmptyState';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  pink: '#F472B6',
-  pinkBg: 'rgba(244,114,182,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#7C3AED';
+const GRADIENT_BRAND: [string, string] = [BRAND_VIOLET, BRAND_ORANGE];
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-interface Invoice {
-  id: string;
-  numero: string;
-  libelle: string;
-  montant: number;
-  montantPaye: number;
-  solde: number;
-  dateEcheance: string;
-  statut: 'PAYEE' | 'PARTIELLE' | 'EN_RETARD' | 'EMISE';
-  paiements?: Payment[];
-}
+// ─── TYPES ────────────────────────────────────────────────────────────────
+type PaymentStatus = 'PAYE' | 'EN_ATTENTE' | 'EN_RETARD';
+type PaymentKind = 'SCOLARITE' | 'FOURNITURES' | 'TRANSPORT' | 'CANTINE';
 
 interface Payment {
   id: string;
+  kind: PaymentKind;
+  label: string;
+  childName: string;
   date: string;
-  montant: number;
-  mode: string;
+  amount: number;
+  status: PaymentStatus;
 }
 
-// ─── Mock data ──────────────────────────────────────────────────────────────
-const MOCK_INVOICES: Invoice[] = [
-  {
-    id: '1',
-    numero: 'FACT-2025-001',
-    libelle: 'Frais de scolarité 1er trimestre',
-    montant: 150000,
-    montantPaye: 150000,
-    solde: 0,
-    dateEcheance: '15 oct. 2025',
-    statut: 'PAYEE',
-    paiements: [
-      { id: 'p1', date: '10 sept. 2025', montant: 150000, mode: 'Mobile Money' },
-    ],
-  },
-  {
-    id: '2',
-    numero: 'FACT-2025-002',
-    libelle: 'Frais de scolarité 2ème trimestre',
-    montant: 150000,
-    montantPaye: 50000,
-    solde: 100000,
-    dateEcheance: '15 janv. 2026',
-    statut: 'PARTIELLE',
-    paiements: [
-      { id: 'p2', date: '05 déc. 2025', montant: 50000, mode: 'Carte bancaire' },
-    ],
-  },
-  {
-    id: '3',
-    numero: 'FACT-2025-003',
-    libelle: 'Frais de cantine',
-    montant: 75000,
-    montantPaye: 0,
-    solde: 75000,
-    dateEcheance: '30 sept. 2025',
-    statut: 'EN_RETARD',
-  },
-  {
-    id: '4',
-    numero: 'FACT-2025-004',
-    libelle: 'Frais d\'examen',
-    montant: 50000,
-    montantPaye: 0,
-    solde: 50000,
-    dateEcheance: '20 nov. 2025',
-    statut: 'EMISE',
-  },
+// ─── MOCK (à remplacer par les vraies données du backend) ─────────────────
+const PARENT_NAME = 'M. Moukoko';
+const SCHOOL_YEAR = '2025-2026';
+const TOTAL_DUE = 1200000; // total annuel à régler, tous enfants confondus
+const ALREADY_PAID = 750000; // cumul déjà réglé sur l'année
+const NEXT_DUE_DATE = '30 nov.';
+const CHILDREN_COUNT = 4;
+const MOCK_CHILD_ID = '1'; // enfant utilisé quand l'écran est ouvert depuis l'onglet (sans childId)
+
+const MOCK_PAYMENTS: Payment[] = [
+  { id: '1', kind: 'SCOLARITE', label: 'Scolarité · Tranche 2', childName: 'Jean Junior', date: '12 oct.', amount: 150000, status: 'PAYE' },
+  { id: '2', kind: 'FOURNITURES', label: 'Fournitures scolaires', childName: 'Sarah', date: '05 oct.', amount: 35000, status: 'PAYE' },
+  { id: '3', kind: 'SCOLARITE', label: 'Scolarité · Tranche 3', childName: 'Marie Claire', date: '30 nov.', amount: 150000, status: 'EN_ATTENTE' },
+  { id: '4', kind: 'TRANSPORT', label: 'Transport · Trimestre 1', childName: 'David', date: '18 sept.', amount: 45000, status: 'EN_RETARD' },
+  { id: '5', kind: 'CANTINE', label: 'Cantine · Octobre', childName: 'Sarah', date: '02 oct.', amount: 20000, status: 'PAYE' },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-const getStatutConfig = (statut: string) => {
-  switch (statut) {
-    case 'PAYEE':
-      return { 
-        label: 'Payée', 
-        color: C.green, 
-        bg: C.greenBg, 
-        icon: 'check-circle',
-        variant: 'success' as const,
-      };
-    case 'PARTIELLE':
-      return { 
-        label: 'Partiel', 
-        color: C.amber, 
-        bg: C.amberBg, 
-        icon: 'clock',
-        variant: 'warning' as const,
-      };
-    case 'EN_RETARD':
-      return { 
-        label: 'En retard', 
-        color: C.red, 
-        bg: C.redBg, 
-        icon: 'alert-triangle',
-        variant: 'error' as const,
-      };
-    default:
-      return { 
-        label: 'En attente', 
-        color: C.blue, 
-        bg: C.blueBg, 
-        icon: 'clock',
-        variant: 'info' as const,
-      };
-  }
+const KIND_ICON: Record<PaymentKind, keyof typeof Feather.glyphMap> = {
+  SCOLARITE: 'book-open',
+  FOURNITURES: 'shopping-bag',
+  TRANSPORT: 'truck',
+  CANTINE: 'coffee',
 };
 
-const formatMontant = (montant: number) => `${montant.toLocaleString()} FCFA`;
+const STATUS_LABEL: Record<PaymentStatus, string> = { PAYE: 'Payé', EN_ATTENTE: 'En attente', EN_RETARD: 'En retard' };
+const STATUS_COLOR: Record<PaymentStatus, string> = { PAYE: '#16A34A', EN_ATTENTE: '#D97706', EN_RETARD: '#DC2626' };
 
-const getProgressPercentage = (montant: number, montantPaye: number) => {
-  if (montant === 0) return 0;
-  return Math.round((montantPaye / montant) * 100);
-};
+const formatAmount = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
 
-// ─── Payment Modal ──────────────────────────────────────────────────────────
-interface PaymentModalProps {
-  visible: boolean;
-  invoice: Invoice | null;
-  onClose: () => void;
-  onConfirm: (data: { operateur: string; password: string; numero: string }) => void;
-}
-
-const PaymentModal: React.FC<PaymentModalProps> = ({
-  visible,
-  invoice,
-  onClose,
-  onConfirm,
-}) => {
-  const [selectedOperateur, setSelectedOperateur] = useState<string | null>(null);
-  const [numero, setNumero] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  const operateurs = [
-    { id: 'MTN', label: 'MTN Mobile Money', icon: 'phone', color: '#FFCC00', bg: '#FFCC0015' },
-    { id: 'AIRTEL', label: 'Airtel Money', icon: 'phone', color: '#FF0000', bg: '#FF000015' },
-    { id: 'ORANGE', label: 'Orange Money', icon: 'phone', color: '#FF6600', bg: '#FF660015' },
-  ];
-
-  const handleConfirm = () => {
-    if (!selectedOperateur) {
-      Alert.alert('Opérateur requis', 'Veuillez sélectionner un opérateur');
-      return;
-    }
-    if (!numero || numero.length < 8) {
-      Alert.alert('Numéro invalide', 'Veuillez entrer un numéro valide (8 chiffres minimum)');
-      return;
-    }
-    if (!password || password.length < 4) {
-      Alert.alert('Code invalide', 'Veuillez entrer votre code Mobile Money (4 chiffres)');
-      return;
-    }
-
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setShowSuccess(true);
-      setTimeout(() => {
-        setShowSuccess(false);
-        onConfirm({ operateur: selectedOperateur, password, numero });
-        onClose();
-      }, 2000);
-    }, 1500);
-  };
-
-  if (!invoice) return null;
-
+// ─── ACTION RAPIDE ───────────────────────────────────────────────────────
+const QuickAction = ({ icon, label, onPress }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void }) => {
+  const { colors } = useTheme();
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[styles.action, { backgroundColor: colors.surface, borderColor: colors.border }]}
     >
-      <View style={{
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-        <View style={{
-          backgroundColor: C.surface,
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: C.border,
-          width: '90%',
-          maxHeight: '90%',
-          padding: 24,
-        }}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{
-                fontSize: 20,
-                fontWeight: '700',
-                color: C.textPrimary,
-                letterSpacing: -0.5,
-              }}>
-                Paiement Mobile Money
-              </Text>
-              <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
-                <Feather name="x" size={24} color={C.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.actionIcon}>
+        <Feather name={icon} size={17} color="#FFFFFF" />
+      </LinearGradient>
+      <Text style={[styles.actionLabel, { color: colors.text }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+};
 
-            {/* Montant */}
-            <View style={{
-              backgroundColor: C.accentBg,
-              borderRadius: 16,
-              padding: 16,
-              alignItems: 'center',
-              marginBottom: 20,
-              borderWidth: 1,
-              borderColor: C.accent + '30',
-            }}>
-              <Text style={{ fontSize: 12, color: C.textMuted }}>Montant à payer</Text>
-              <Text style={{
-                fontSize: 28,
-                fontWeight: '800',
-                color: C.textPrimary,
-                marginTop: 4,
-              }}>
-                {formatMontant(invoice.solde)}
-              </Text>
-              <Text style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>
-                {invoice.libelle}
-              </Text>
-            </View>
-
-            {/* Opérateurs */}
-            <Text style={{
-              fontSize: 13,
-              fontWeight: '600',
-              color: C.textSecondary,
-              marginBottom: 12,
-            }}>
-              Choisissez votre opérateur
-            </Text>
-            <View style={{ gap: 8, marginBottom: 20 }}>
-              {operateurs.map((op) => (
-                <TouchableOpacity
-                  key={op.id}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedOperateur(op.id)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: 14,
-                    borderRadius: 14,
-                    backgroundColor: selectedOperateur === op.id ? op.bg : C.surfaceAlt,
-                    borderWidth: 2,
-                    borderColor: selectedOperateur === op.id ? op.color : C.border,
-                  }}
-                >
-                  <View style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: selectedOperateur === op.id ? op.color + '20' : C.surface,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    <Feather name={op.icon as any} size={20} color={selectedOperateur === op.id ? op.color : C.textMuted} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: selectedOperateur === op.id ? op.color : C.textSecondary,
-                    }}>
-                      {op.label}
-                    </Text>
-                  </View>
-                  {selectedOperateur === op.id && (
-                    <View style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 10,
-                      backgroundColor: op.color,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <Feather name="check" size={12} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Numéro et Code */}
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: C.textMuted,
-                marginBottom: 6,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Numéro Mobile Money
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: C.surfaceAlt,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: C.border,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  fontSize: 15,
-                  color: C.textPrimary,
-                }}
-                placeholder="Ex: 0612345678"
-                placeholderTextColor={C.textDim}
-                value={numero}
-                onChangeText={setNumero}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '600',
-                color: C.textMuted,
-                marginBottom: 6,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Code Mobile Money (4 chiffres)
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: C.surfaceAlt,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: C.border,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  fontSize: 15,
-                  color: C.textPrimary,
-                }}
-                placeholder="••••"
-                placeholderTextColor={C.textDim}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                keyboardType="numeric"
-                maxLength={4}
-              />
-            </View>
-
-            {/* Bouton de confirmation */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleConfirm}
-              disabled={isLoading || showSuccess}
-              style={{
-                backgroundColor: isLoading || showSuccess ? C.textMuted : C.accent,
-                borderRadius: 14,
-                paddingVertical: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'row',
-                gap: 8,
-                opacity: isLoading || showSuccess ? 0.7 : 1,
-              }}
-            >
-              {showSuccess ? (
-                <>
-                  <Feather name="check-circle" size={20} color="#FFFFFF" />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
-                    Paiement réussi !
-                  </Text>
-                </>
-              ) : isLoading ? (
-                <>
-                  <View style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: 10,
-                    borderWidth: 2,
-                    borderColor: 'rgba(255,255,255,0.3)',
-                    borderTopColor: '#FFFFFF',
-                    transform: [{ rotate: '45deg' }],
-                  }} />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
-                    En cours...
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Feather name="credit-card" size={20} color="#FFFFFF" />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
-                    Confirmer le paiement
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Footer */}
-            <Text style={{
-              textAlign: 'center',
-              fontSize: 11,
-              color: C.textDim,
-              marginTop: 16,
-            }}>
-              Vous recevrez une confirmation par SMS
-            </Text>
-          </ScrollView>
-        </View>
+// ─── LIGNE DE TRANSACTION ────────────────────────────────────────────────
+const PaymentRow = ({ item, onPress }: { item: Payment; onPress: () => void }) => {
+  const { colors } = useTheme();
+  return (
+    <TouchableOpacity activeOpacity={0.75} onPress={onPress} accessibilityRole="button" style={styles.row}>
+      <View style={[styles.rowIcon, { backgroundColor: colors.surfaceElevated }]}>
+        <Feather name={KIND_ICON[item.kind]} size={18} color={colors.text} />
       </View>
-    </Modal>
+      <View style={{ flex: 1, marginRight: 10 }}>
+        <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{item.label}</Text>
+        <Text style={[styles.rowSub, { color: colors.textMuted }]} numberOfLines={1}>
+          {item.childName} · {item.date}
+        </Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={[styles.rowAmount, { color: colors.text }]}>{formatAmount(item.amount)} F</Text>
+        <Text style={[styles.rowStatus, { color: STATUS_COLOR[item.status] }]}>{STATUS_LABEL[item.status]}</Text>
+      </View>
+    </TouchableOpacity>
   );
 };
 
-// ─── Progress Bar ──────────────────────────────────────────────────────────
-const ProgressBar = ({ percentage, color }: { percentage: number; color: string }) => {
-  const widthAnim = useRef(new Animated.Value(0)).current;
+// ─── SCREEN PRINCIPAL ───────────────────────────────────────────────────
+export const ParentPaymentsScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
 
-  useEffect(() => {
-    Animated.timing(widthAnim, {
-      toValue: Math.min(percentage, 100),
-      duration: 800,
-      useNativeDriver: false,
-    }).start();
-  }, [percentage]);
+  const payments = MOCK_PAYMENTS;
+  const remaining = Math.max(TOTAL_DUE - ALREADY_PAID, 0);
+  const progress = Math.min(ALREADY_PAID / TOTAL_DUE, 1);
 
-  return (
-    <View
-      style={{
-        height: 3,
-        flex: 1,
-        backgroundColor: C.border,
-        borderRadius: 1.5,
-        overflow: 'hidden',
-      }}
-    >
-      <Animated.View
-        style={{
-          height: 3,
-          backgroundColor: color,
-          borderRadius: 1.5,
-          width: widthAnim.interpolate({
-            inputRange: [0, 100],
-            outputRange: ['0%', '100%'],
-          }),
-        }}
-      />
-    </View>
-  );
-};
-
-// ─── Invoice Card ──────────────────────────────────────────────────────────
-const InvoiceCard = ({
-  invoice,
-  index,
-  onPay,
-}: {
-  invoice: Invoice;
-  index: number;
-  onPay: (invoice: Invoice) => void;
-}) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const statutConfig = getStatutConfig(invoice.statut);
-  const isPayable = invoice.statut !== 'PAYEE';
-  const progress = getProgressPercentage(invoice.montant, invoice.montantPaye);
-
-  // Animations
-  const translateY = useRef(new Animated.Value(15)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const expandHeight = useRef(new Animated.Value(0)).current;
-  const expandOpacity = useRef(new Animated.Value(0)).current;
-
+  const fade = useRef(new Animated.Value(0)).current;
+  const lift = useRef(new Animated.Value(16)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 25,
-        delay: index * 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 300,
-        delay: index * 80,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fade, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.spring(lift, { toValue: 0, damping: 18, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(expandHeight, {
-        toValue: isExpanded ? 1 : 0,
-        duration: 250,
-        useNativeDriver: false,
-      }),
-      Animated.timing(expandOpacity, {
-        toValue: isExpanded ? 1 : 0,
-        duration: 250,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [isExpanded]);
+  // Routes existantes dans AppNavigator : ParentPaymentHistory { childId }
+  const route = useRoute<any>();
+  const childId: string = route.params?.childId ?? MOCK_CHILD_ID;
+  const goHistory = () => navigation.navigate('ParentPaymentHistory', { childId });
+  const goReceipts = goHistory;
+  const goSchedule = goHistory;
+  const goPayment = (_p: Payment) => goHistory();
+  // TODO : brancher l'écran de paiement en ligne quand il existera
+  const goPay = () => Alert.alert('Paiement', 'Le paiement en ligne sera bientôt disponible.');
 
   return (
-    <Animated.View
-      style={{
-        opacity: opacity,
-        transform: [{ translateY: translateY }],
-        marginBottom: 16,
-      }}
-    >
-      <Card
-        variant="default"
-        padding="md"
-        glow={invoice.statut === 'PAYEE'}
-        borderGlow={invoice.statut === 'PAYEE'}
-      >
-        {/* Bandeau de statut */}
-        <LinearGradient
-          colors={[
-            invoice.statut === 'PAYEE' ? C.green + '60' :
-            invoice.statut === 'EN_RETARD' ? C.red + '60' :
-            invoice.statut === 'PARTIELLE' ? C.amber + '60' :
-            C.blue + '60',
-            'transparent'
-          ]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 2.5,
-          }}
-        />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={colors.background === '#FFFFFF' ? 'dark-content' : 'light-content'} />
 
-        <View style={{ paddingTop: 4 }}>
-          {/* En-tête */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setIsExpanded(!isExpanded)}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: '700',
-                    color: C.textPrimary,
-                    letterSpacing: -0.2,
-                  }}
-                  numberOfLines={1}
-                >
-                  {invoice.libelle}
-                </Text>
-                <Text style={{ fontSize: 12, marginTop: 2, color: C.textMuted }}>
-                  N° {invoice.numero}
-                </Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: insets.bottom + 40 }}>
+        {/* ───── EN-TÊTE ───── */}
+        <View style={styles.header}>
+          <View style={styles.hello}>
+            <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.helloRing}>
+              <View style={[styles.helloInner, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.helloInitial, { color: colors.text }]}>{PARENT_NAME.replace('M. ', '')[0]}</Text>
               </View>
-              <Badge
-                text={`${statutConfig.icon} ${statutConfig.label}`}
-                variant={statutConfig.variant}
-                size="sm"
-                glow={invoice.statut === 'PAYEE'}
-              />
+            </LinearGradient>
+            <View style={{ marginLeft: 12 }}>
+              <Text style={[styles.helloSmall, { color: colors.textMuted }]}>Bonjour</Text>
+              <Text style={[styles.helloName, { color: colors.text }]}>{PARENT_NAME}</Text>
             </View>
-
-            {/* Montant et progression */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: '700',
-                  color: invoice.solde > 0 ? C.textPrimary : C.green,
-                }}
-              >
-                {formatMontant(invoice.montant)}
-              </Text>
-              {invoice.solde > 0 && (
-                <Text style={{ fontSize: 12, color: C.textMuted }}>
-                  Reste {formatMontant(invoice.solde)}
-                </Text>
-              )}
-            </View>
-
-            {/* Barre de progression */}
-            {invoice.statut !== 'PAYEE' && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <ProgressBar percentage={progress} color={statutConfig.color} />
-                <Text style={{ fontSize: 10, fontWeight: '500', color: C.textMuted }}>
-                  {progress}%
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Expansion */}
-          <Animated.View
-            style={{
-              overflow: 'hidden',
-              maxHeight: expandHeight.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 500],
-              }),
-              opacity: expandOpacity,
-            }}
-          >
-            <View
-              style={{
-                paddingTop: 14,
-                marginTop: 12,
-                borderTopWidth: 1,
-                borderTopColor: C.border,
-              }}
-            >
-              {/* Détails des paiements */}
-              <View style={{ gap: 8 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 12, color: C.textMuted }}>
-                    Date d'échéance
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: '600',
-                      color: invoice.statut === 'EN_RETARD' ? C.red : C.textSecondary,
-                    }}
-                  >
-                    {invoice.dateEcheance}
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 12, color: C.textMuted }}>
-                    Déjà payé
-                  </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: C.green }}>
-                    {formatMontant(invoice.montantPaye)}
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 }}>
-                  <Text style={{ fontSize: 12, color: C.textMuted }}>
-                    Solde restant
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: '700',
-                      color: invoice.solde > 0 ? C.accent : C.green,
-                    }}
-                  >
-                    {formatMontant(invoice.solde)}
-                  </Text>
-                </View>
-
-                {/* Historique des paiements */}
-                {invoice.paiements && invoice.paiements.length > 0 && (
-                  <View
-                    style={{
-                      paddingTop: 12,
-                      borderTopWidth: 1,
-                      borderTopColor: C.border,
-                    }}
-                  >
-                    <Text style={{ fontSize: 10, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, color: C.textMuted }}>
-                      Historique des paiements
-                    </Text>
-                    {invoice.paiements.map((payment) => (
-                      <View
-                        key={payment.id}
-                        style={{
-                          flexDirection: 'row',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          paddingVertical: 4,
-                        }}
-                      >
-                        <Text style={{ fontSize: 12, color: C.textMuted }}>
-                          {payment.date}
-                        </Text>
-                        <Text style={{ fontSize: 12, fontWeight: '500', color: C.green }}>
-                          {formatMontant(payment.montant)}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Bouton de paiement */}
-                {isPayable && (
-                  <View style={{ marginTop: 12 }}>
-                    <Button
-                      title={`Payer ${formatMontant(invoice.solde)}`}
-                      onPress={() => onPay(invoice)}
-                      variant="gradient"
-                      size="sm"
-                      fullWidth
-                      icon={<Feather name="credit-card" size={14} color="#FFFFFF" />}
-                    />
-                  </View>
-                )}
-              </View>
-            </View>
-          </Animated.View>
-
-          {/* Bouton d'expansion */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setIsExpanded(!isExpanded)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingTop: 10,
-              marginTop: 10,
-              borderTopWidth: 1,
-              borderTopColor: C.border,
-              gap: 4,
-            }}
-          >
-            <Text style={{ fontSize: 10, fontWeight: '500', color: C.textMuted }}>
-              {isExpanded ? 'Masquer les détails' : 'Voir les détails'}
-            </Text>
-            <Feather
-              name={isExpanded ? 'chevron-up' : 'chevron-down'}
-              size={14}
-              color={C.textMuted}
-            />
-          </TouchableOpacity>
-        </View>
-      </Card>
-    </Animated.View>
-  );
-};
-
-// ─── Header ──────────────────────────────────────────────────────────────────
-const Header = ({ children, count }: { children: string; count: number }) => {
-  const { user } = useAuth();
-  const initials = `${user?.prenoms?.[0] ?? ''}${user?.nom?.[0] ?? ''}`.toUpperCase();
-
-  const totalDu = MOCK_INVOICES.reduce((sum, inv) => sum + inv.solde, 0);
-  const pendingCount = MOCK_INVOICES.filter(inv => inv.statut !== 'PAYEE').length;
-
-  return (
-    <View
-      style={{
-        backgroundColor: C.surface,
-        paddingTop: 56,
-        paddingBottom: 28,
-        paddingHorizontal: 22,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      {/* Halos décoratifs */}
-      <View
-        style={{
-          position: 'absolute',
-          top: -50,
-          right: -50,
-          width: 200,
-          height: 200,
-          backgroundColor: 'rgba(99,102,241,0.06)',
-          borderRadius: 100,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          bottom: -30,
-          left: -20,
-          width: 140,
-          height: 140,
-          backgroundColor: 'rgba(52,211,153,0.04)',
-          borderRadius: 70,
-        }}
-      />
-
-      {/* Top bar */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            style={{
-              width: 40,
-              height: 40,
-              backgroundColor: C.surfaceAlt,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: C.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="arrow-left" size={20} color={C.textSecondary} />
-          </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 2.5,
-              color: C.accent,
-              textTransform: 'uppercase',
-            }}
-          >
-            SURYA
-          </Text>
-        </View>
-
-        <LinearGradient
-          colors={['#3730A3', '#6366F1']}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 13,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>
-            {initials}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Titre */}
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: '700',
-          color: '#E8EAF0',
-          letterSpacing: -0.3,
-        }}
-      >
-        {children}
-      </Text>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-        <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 0.2 }}>
-          {count} facture{count > 1 ? 's' : ''}
-        </Text>
-        {pendingCount > 0 && (
-          <>
-            <View
-              style={{
-                width: 3,
-                height: 3,
-                borderRadius: 1.5,
-                backgroundColor: C.textMuted,
-              }}
-            />
-            <Text style={{ fontSize: 12, color: C.textMuted }}>
-              {pendingCount} en attente
-            </Text>
-          </>
-        )}
-        {totalDu > 0 && (
-          <>
-            <View
-              style={{
-                width: 3,
-                height: 3,
-                borderRadius: 1.5,
-                backgroundColor: C.textMuted,
-              }}
-            />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 12, color: C.textMuted }}>Dû</Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '700',
-                  color: C.accent,
-                  letterSpacing: -0.2,
-                }}
-              >
-                {formatMontant(totalDu)}
-              </Text>
-            </View>
-          </>
-        )}
-      </View>
-    </View>
-  );
-};
-
-// ─── Screen ──────────────────────────────────────────────────────────────────
-export const ParentPaymentsScreen: React.FC = () => {
-  const { user } = useAuth();
-  const [invoices, setInvoices] = useState(MOCK_INVOICES);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
-
-  const handlePay = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    setModalVisible(true);
-  };
-
-  const handleConfirmPayment = (data: { operateur: string; password: string; numero: string }) => {
-    // Mettre à jour la facture
-    setInvoices(prev =>
-      prev.map(inv =>
-        inv.id === selectedInvoice?.id 
-          ? { 
-              ...inv, 
-              statut: 'PAYEE' as const,
-              montantPaye: inv.montant,
-              solde: 0,
-              paiements: [
-                ...(inv.paiements || []),
-                { 
-                  id: `p${Date.now()}`, 
-                  date: new Date().toLocaleDateString('fr-FR'), 
-                  montant: inv.montant,
-                  mode: `Mobile Money (${data.operateur})` 
-                }
-              ]
-            } 
-          : inv
-      )
-    );
-    
-    Alert.alert(
-      '✅ Paiement confirmé',
-      `Votre paiement de ${formatMontant(selectedInvoice?.montant || 0)} a été effectué avec succès.\n\nOpérateur: ${data.operateur}\nNuméro: ${data.numero}\nFacture: ${selectedInvoice?.numero}`,
-      [{ text: 'OK' }]
-    );
-    
-    setModalVisible(false);
-    setSelectedInvoice(null);
-  };
-
-  if (!user) return <LoadingSpinner fullScreen />;
-
-  if (invoices.length === 0) {
-    return (
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
-        <Header children="Paiements" count={0} />
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 20 }}>
-          <EmptyState
-            title="Aucune facture"
-            description="Aucune facture n'est disponible pour le moment"
-            icon="credit-card"
-          />
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
-
-      <FlatList
-        data={invoices}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
-        }
-        renderItem={({ item, index }) => (
-          <InvoiceCard invoice={item} index={index} onPay={handlePay} />
-        )}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingBottom: 32,
-        }}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={() => (
-          <Header children="Paiements" count={invoices.length} />
-        )}
-        ListFooterComponent={() => (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              marginTop: 4,
-              paddingVertical: 12,
-            }}
-          >
-            <Feather name="info" size={12} color={C.textMuted} />
-            <Text style={{ fontSize: 10, color: C.textMuted }}>
-              {invoices.filter(i => i.statut === 'PAYEE').length} facture{invoices.filter(i => i.statut === 'PAYEE').length > 1 ? 's' : ''} payée{invoices.filter(i => i.statut === 'PAYEE').length > 1 ? 's' : ''}
-            </Text>
           </View>
-        )}
-      />
+          <TouchableOpacity
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            style={[styles.bell, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Feather name="bell" size={18} color={colors.text} />
+            <View style={styles.bellDot} />
+          </TouchableOpacity>
+        </View>
 
-      {/* Modal de paiement */}
-      <PaymentModal
-        visible={modalVisible}
-        invoice={selectedInvoice}
-        onClose={() => {
-          setModalVisible(false);
-          setSelectedInvoice(null);
-        }}
-        onConfirm={handleConfirmPayment}
-      />
+        <Animated.View style={{ opacity: fade, transform: [{ translateY: lift }] }}>
+          {/* ───── CARTE SCOLARITÉ ───── */}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Ma scolarité</Text>
+
+          <View style={styles.cardWrap}>
+            <LinearGradient colors={['#2B2138', '#15101D', '#0A090E']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+              {/* brumes de couleur, très discrètes */}
+              <LinearGradient
+                pointerEvents="none"
+                colors={[`${BRAND_ORANGE}40`, `${BRAND_ORANGE}00`]}
+                start={{ x: 1, y: 0 }}
+                end={{ x: 0.35, y: 0.7 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                pointerEvents="none"
+                colors={[`${BRAND_VIOLET}55`, `${BRAND_VIOLET}00`]}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 0.6, y: 0.3 }}
+                style={StyleSheet.absoluteFill}
+              />
+
+              <View style={styles.cardTop}>
+                <Text style={styles.cardBrand}>Zenit · {SCHOOL_YEAR}</Text>
+                <View style={styles.cardPill}>
+                  <Feather name="users" size={12} color="rgba(255,255,255,0.85)" />
+                  <Text style={styles.cardPillText}>{CHILDREN_COUNT} enfants</Text>
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.cardLabel}>Reste à payer</Text>
+                <View style={styles.cardAmountRow}>
+                  <Text style={styles.cardAmount}>{formatAmount(remaining)}</Text>
+                  <Text style={styles.cardCurrency}>FCFA</Text>
+                </View>
+              </View>
+
+              <View>
+                <View style={styles.track}>
+                  <LinearGradient
+                    colors={GRADIENT_BRAND}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.trackFill, { width: `${Math.round(progress * 100)}%` }]}
+                  />
+                </View>
+                <View style={styles.cardBottom}>
+                  <Text style={styles.cardMeta}>{Math.round(progress * 100)} % réglé</Text>
+                  <Text style={styles.cardMeta}>Échéance {NEXT_DUE_DATE}</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* ───── ACTIONS ───── */}
+          <View style={styles.actions}>
+            <QuickAction icon="arrow-up-right" label="Payer" onPress={goPay} />
+            <QuickAction icon="file-text" label="Reçus" onPress={goReceipts} />
+            <QuickAction icon="calendar" label="Échéancier" onPress={goSchedule} />
+          </View>
+
+          {/* ───── TRANSACTIONS ───── */}
+          <View style={styles.listHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 0, paddingHorizontal: 0 }]}>Transactions</Text>
+            <TouchableOpacity onPress={goHistory} activeOpacity={0.7} accessibilityRole="button" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={[styles.viewAll, { color: BRAND_VIOLET }]}>Tout voir</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ paddingHorizontal: 20 }}>
+            {payments.map((p) => (
+              <PaymentRow key={p.id} item={p} onPress={() => goPayment(p)} />
+            ))}
+          </View>
+        </Animated.View>
+      </ScrollView>
     </View>
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 26 },
+  hello: { flexDirection: 'row', alignItems: 'center' },
+  helloRing: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  helloInner: { width: 43, height: 43, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  helloInitial: { fontSize: 18, fontWeight: '600' },
+  helloSmall: { fontSize: 12.5 },
+  helloName: { fontSize: 16, fontWeight: '600', marginTop: 1, letterSpacing: -0.2 },
+  bell: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  bellDot: { position: 'absolute', top: 12, right: 13, width: 7, height: 7, borderRadius: 3.5, backgroundColor: BRAND_ORANGE },
+
+  sectionTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.3, paddingHorizontal: 20, marginBottom: 14 },
+
+  cardWrap: {
+    marginHorizontal: 20,
+    borderRadius: 28,
+    shadowColor: BRAND_VIOLET,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  card: {
+    borderRadius: 28,
+    padding: 22,
+    height: 196,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardBrand: { fontSize: 15, fontWeight: '300', color: 'rgba(255,255,255,0.8)', letterSpacing: 0.4 },
+  cardPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
+  cardPillText: { fontSize: 11.5, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  cardLabel: { fontSize: 12.5, color: 'rgba(255,255,255,0.55)', marginBottom: 4 },
+  cardAmountRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  cardAmount: { fontSize: 38, fontWeight: '300', color: '#FFFFFF', letterSpacing: -1 },
+  cardCurrency: { fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 7, letterSpacing: 1 },
+  track: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
+  trackFill: { height: 4, borderRadius: 2 },
+  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  cardMeta: { fontSize: 11.5, color: 'rgba(255,255,255,0.6)' },
+
+  actions: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginTop: 20, marginBottom: 32 },
+  action: { flex: 1, borderRadius: 22, borderWidth: 1, paddingVertical: 16, alignItems: 'center' },
+  actionIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  actionLabel: { fontSize: 13, fontWeight: '600' },
+
+  listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 8 },
+  viewAll: { fontSize: 13, fontWeight: '600' },
+
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  rowIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  rowTitle: { fontSize: 14.5, fontWeight: '600', letterSpacing: -0.1 },
+  rowSub: { fontSize: 12, marginTop: 3 },
+  rowAmount: { fontSize: 14.5, fontWeight: '600' },
+  rowStatus: { fontSize: 11.5, fontWeight: '600', marginTop: 3 },
+});
+
+export default ParentPaymentsScreen;

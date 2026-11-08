@@ -1,51 +1,22 @@
 // screens/parent/ParentTimetableScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  StatusBar,
-  Animated,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StatusBar, Animated, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../../hooks/useAuth';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { EmptyState } from '../../components/animations/EmptyState';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import MaskedViewNative from '@react-native-masked-view/masked-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  pink: '#F472B6',
-  pinkBg: 'rgba(244,114,182,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#8B5CF6';
+const GRADIENT_BRAND: [string, string] = [BRAND_ORANGE, BRAND_VIOLET];
+const MaskedView = MaskedViewNative as unknown as React.ComponentType<any>;
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+type FeatherIconName = keyof typeof Feather.glyphMap;
+
+// ─── TYPES & MOCK ────────────────────────────────────────────────────────
 interface TimetableEntry {
   id: string;
   heureDebut: string;
@@ -56,589 +27,222 @@ interface TimetableEntry {
   type?: 'CM' | 'TD' | 'TP' | 'EXAMEN' | 'DEVOIR';
 }
 
-// ─── Mock data ──────────────────────────────────────────────────────────────
+const e = (id: string, d: string, f: string, matiere: string, professeur: string, salle: string, type: TimetableEntry['type']): TimetableEntry =>
+  ({ id, heureDebut: d, heureFin: f, matiere, professeur, salle, type });
+
 const MOCK_TIMETABLE: Record<string, TimetableEntry[]> = {
   Lundi: [
-    { 
-      id: '1', 
-      heureDebut: '08:00', 
-      heureFin: '09:30', 
-      matiere: 'Mathématiques', 
-      professeur: 'M. NGOMA', 
-      salle: 'A101', 
-      type: 'CM' 
-    },
-    { 
-      id: '2', 
-      heureDebut: '10:00', 
-      heureFin: '11:30', 
-      matiere: 'Français', 
-      professeur: 'Mme LOUBAKI', 
-      salle: 'A102', 
-      type: 'TD' 
-    },
-    { 
-      id: '3', 
-      heureDebut: '13:00', 
-      heureFin: '14:30', 
-      matiere: 'Anglais', 
-      professeur: 'M. WAMBA', 
-      salle: 'Labo Langues', 
-      type: 'TD' 
-    },
+    e('1', '08:00', '09:30', 'Mathématiques', 'M. NGOMA', 'A101', 'CM'),
+    e('2', '10:00', '11:30', 'Français', 'Mme LOUBAKI', 'A102', 'TD'),
+    e('3', '13:00', '14:30', 'Anglais', 'M. WAMBA', 'Labo Langues', 'TD'),
   ],
   Mardi: [
-    { 
-      id: '4', 
-      heureDebut: '08:00', 
-      heureFin: '09:30', 
-      matiere: 'Physique-Chimie', 
-      professeur: 'M. MFOUMOU', 
-      salle: 'Labo Sciences', 
-      type: 'TP' 
-    },
-    { 
-      id: '5', 
-      heureDebut: '10:00', 
-      heureFin: '11:30', 
-      matiere: 'SVT', 
-      professeur: 'Mme MASSAMBA', 
-      salle: 'A103', 
-      type: 'CM' 
-    },
+    e('4', '08:00', '09:30', 'Physique-Chimie', 'M. MFOUMOU', 'Labo Sciences', 'TP'),
+    e('5', '10:00', '11:30', 'SVT', 'Mme MASSAMBA', 'A103', 'CM'),
   ],
   Mercredi: [],
   Jeudi: [
-    { 
-      id: '6', 
-      heureDebut: '08:00', 
-      heureFin: '09:30', 
-      matiere: 'Histoire-Géo', 
-      professeur: 'Mme MOUKALA', 
-      salle: 'A104', 
-      type: 'CM' 
-    },
-    { 
-      id: '7', 
-      heureDebut: '10:00', 
-      heureFin: '11:30', 
-      matiere: 'Anglais', 
-      professeur: 'M. WAMBA', 
-      salle: 'Labo Langues', 
-      type: 'TD' 
-    },
+    e('6', '08:00', '09:30', 'Histoire-Géo', 'Mme MOUKALA', 'A104', 'CM'),
+    e('7', '10:00', '11:30', 'Anglais', 'M. WAMBA', 'Labo Langues', 'TD'),
   ],
   Vendredi: [
-    { 
-      id: '8', 
-      heureDebut: '08:00', 
-      heureFin: '09:30', 
-      matiere: 'Mathématiques', 
-      professeur: 'M. NGOMA', 
-      salle: 'A101', 
-      type: 'CM' 
-    },
-    { 
-      id: '9', 
-      heureDebut: '10:00', 
-      heureFin: '11:30', 
-      matiere: 'Français', 
-      professeur: 'Mme LOUBAKI', 
-      salle: 'A102', 
-      type: 'TD' 
-    },
+    e('8', '08:00', '09:30', 'Mathématiques', 'M. NGOMA', 'A101', 'CM'),
+    e('9', '10:00', '11:30', 'Français', 'Mme LOUBAKI', 'A102', 'TD'),
   ],
   Samedi: [],
+  Dimanche: [],
 };
 
-const joursSemaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-const today = new Date().getDay();
-const todayIndex = today === 0 ? 6 : today - 1;
-const todayName = joursSemaine[todayIndex] || 'Lundi';
+const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']; // semaine commençant le lundi
+const MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-const getTypeConfig = (type?: string) => {
-  switch (type) {
-    case 'CM':
-      return { label: 'CM', color: C.blue, bg: C.blueBg, icon: '🎓' };
-    case 'TD':
-      return { label: 'TD', color: C.green, bg: C.greenBg, icon: '📝' };
-    case 'TP':
-      return { label: 'TP', color: C.amber, bg: C.amberBg, icon: '🔬' };
-    case 'EXAMEN':
-      return { label: 'Examen', color: C.red, bg: C.redBg, icon: '📋' };
-    case 'DEVOIR':
-      return { label: 'Devoir', color: C.purple, bg: C.purpleBg, icon: '📄' };
-    default:
-      return { label: '', color: C.textMuted, bg: 'transparent', icon: '' };
-  }
+const TYPE_META: Record<string, { label: string; icon: FeatherIconName }> = {
+  CM: { label: 'Cours', icon: 'book-open' },
+  TD: { label: 'Travaux dirigés', icon: 'edit-3' },
+  TP: { label: 'Travaux pratiques', icon: 'cpu' },
+  EXAMEN: { label: 'Examen', icon: 'file-text' },
+  DEVOIR: { label: 'Devoir', icon: 'clipboard' },
 };
 
-// ─── Day Selector ──────────────────────────────────────────────────────────
-const DaySelector = ({
-  selectedDay,
-  onSelectDay,
-}: {
-  selectedDay: string;
-  onSelectDay: (day: string) => void;
-}) => {
-  const today = new Date().getDay();
-  const todayIndex = today === 0 ? 6 : today - 1;
+// ─── DATES ────────────────────────────────────────────────────────────────
+const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const startOfWeek = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return addDays(x, -((x.getDay() + 6) % 7)); };
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+const coursOf = (d: Date) => MOCK_TIMETABLE[JOURS[d.getDay()]] || [];
 
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={{ paddingHorizontal: 16, paddingBottom: 16 }}
-      contentContainerStyle={{ gap: 8 }}
-    >
-      {joursSemaine.map((jour) => {
-        const isActive = selectedDay === jour;
-        const isToday = joursSemaine[todayIndex] === jour;
-        const hasCours = (MOCK_TIMETABLE[jour] || []).length > 0;
+// ─── BRIQUES ──────────────────────────────────────────────────────────────
+const GradientIcon = ({ name, size }: { name: FeatherIconName; size: number }) => (
+  <MaskedView
+    style={{ width: size, height: size }}
+    maskElement={<View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><Feather name={name} size={size} color="#000" /></View>}
+  >
+    <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size }} />
+  </MaskedView>
+);
 
-        return (
-          <TouchableOpacity
-            key={jour}
-            activeOpacity={0.7}
-            onPress={() => onSelectDay(jour)}
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 14,
-              backgroundColor: isActive ? C.accent : C.surface,
-              borderWidth: 1,
-              borderColor: isActive ? C.accent : C.border,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: isActive ? '700' : '600',
-                color: isActive ? '#FFFFFF' : C.textSecondary,
-                letterSpacing: 0.2,
-              }}
-            >
-              {jour}
-            </Text>
-            {isToday && (
-              <View
-                style={{
-                  width: 4,
-                  height: 4,
-                  borderRadius: 2,
-                  backgroundColor: isActive ? '#FFFFFF' : C.green,
-                }}
-              />
-            )}
-            {hasCours && (
-              <View
-                style={{
-                  paddingHorizontal: 4,
-                  paddingVertical: 1,
-                  borderRadius: 4,
-                  backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : C.accentBg,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 8,
-                    fontWeight: '700',
-                    color: isActive ? 'rgba(255,255,255,0.8)' : C.accentDim,
-                  }}
-                >
-                  {(MOCK_TIMETABLE[jour] || []).length}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
-  );
+/** Fondu + léger glissement à chaque changement de jour */
+const FadeIn = ({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) => {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(v, { toValue: 1, duration: 380, delay, useNativeDriver: true }).start(); }, []);
+  return <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>{children}</Animated.View>;
 };
 
-// ─── Course Card ────────────────────────────────────────────────────────────
-const CourseCard = ({ course, index }: { course: TimetableEntry; index: number }) => {
-  const typeConfig = getTypeConfig(course.type);
-
-  // Animation
-  const translateX = useRef(new Animated.Value(-10)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(translateX, {
-        toValue: 0,
-        damping: 25,
-        delay: index * 60,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 300,
-        delay: index * 60,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  return (
-    <Animated.View
-      style={{
-        opacity: opacity,
-        transform: [{ translateX: translateX }],
-        marginBottom: 12,
-      }}
-    >
-      <Card
-        variant="default"
-        padding="md"
-        glow={!!typeConfig.label}
-        borderGlow={!!typeConfig.label}
-      >
-        {/* Indicateur de type */}
-        {typeConfig.label && (
-          <LinearGradient
-            colors={[typeConfig.color + '60', 'transparent']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 2.5,
-            }}
-          />
-        )}
-
-        <View style={{ paddingTop: 4 }}>
-          {/* En-tête */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: '700',
-                    color: C.textPrimary,
-                    letterSpacing: -0.2,
-                  }}
-                >
-                  {course.matiere}
-                </Text>
-                {typeConfig.label && (
-                  <Badge
-                    text={`${typeConfig.icon} ${typeConfig.label}`}
-                    variant={
-                      course.type === 'CM' ? 'info' :
-                      course.type === 'TD' ? 'success' :
-                      course.type === 'TP' ? 'warning' :
-                      course.type === 'EXAMEN' ? 'error' : 'primary'
-                    }
-                    size="sm"
-                  />
-                )}
-              </View>
-
-              <Text style={{ fontSize: 12, marginTop: 4, color: C.textMuted }}>
-                {course.professeur}
-              </Text>
-            </View>
-
-            {/* Heure */}
-            <View
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 8,
-                backgroundColor: C.accentBg,
-                borderWidth: 1,
-                borderColor: C.border,
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '600', color: C.accentDim }}>
-                {course.heureDebut}
-              </Text>
-            </View>
-          </View>
-
-          {/* Détails */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-              marginTop: 10,
-              paddingTop: 10,
-              borderTopWidth: 1,
-              borderTopColor: C.border,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Feather name="clock" size={12} color={C.textMuted} />
-              <Text style={{ fontSize: 10, fontWeight: '500', color: C.textMuted }}>
-                {course.heureDebut} - {course.heureFin}
-              </Text>
-            </View>
-
-            <View
-              style={{
-                width: 1,
-                height: 10,
-                backgroundColor: C.border,
-              }}
-            />
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Feather name="map-pin" size={12} color={C.textMuted} />
-              <Text style={{ fontSize: 10, fontWeight: '500', color: C.textMuted }}>
-                Salle {course.salle}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </Card>
-    </Animated.View>
-  );
-};
-
-// ─── Header ──────────────────────────────────────────────────────────────────
-const Header = ({ children }: { children: string }) => {
-  const { user } = useAuth();
-  const initials = `${user?.prenoms?.[0] ?? ''}${user?.nom?.[0] ?? ''}`.toUpperCase();
-
-  return (
-    <View
-      style={{
-        backgroundColor: C.surface,
-        paddingTop: 56,
-        paddingBottom: 28,
-        paddingHorizontal: 22,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      {/* Halos décoratifs */}
-      <View
-        style={{
-          position: 'absolute',
-          top: -50,
-          right: -50,
-          width: 200,
-          height: 200,
-          backgroundColor: 'rgba(99,102,241,0.06)',
-          borderRadius: 100,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          bottom: -30,
-          left: -20,
-          width: 140,
-          height: 140,
-          backgroundColor: 'rgba(52,211,153,0.04)',
-          borderRadius: 70,
-        }}
-      />
-
-      {/* Top bar */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            style={{
-              width: 40,
-              height: 40,
-              backgroundColor: C.surfaceAlt,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: C.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="arrow-left" size={20} color={C.textSecondary} />
-          </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 2.5,
-              color: C.accent,
-              textTransform: 'uppercase',
-            }}
-          >
-            ✦ SURYA
-          </Text>
-        </View>
-
-        <LinearGradient
-          colors={['#3730A3', '#6366F1']}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 13,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>
-            {initials}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Titre */}
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: '700',
-          color: '#E8EAF0',
-          letterSpacing: -0.3,
-        }}
-      >
-        {children}
-      </Text>
-      <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 4, letterSpacing: 0.2 }}>
-        Consultez l'emploi du temps de votre enfant
-      </Text>
-    </View>
-  );
-};
-
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ─── ÉCRAN ────────────────────────────────────────────────────────────────
 export const ParentTimetableScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const [selected, setSelected] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(todayName);
 
-  // Animation pour EmptyState
-  const emptyScale = useRef(new Animated.Value(0.95)).current;
-  const emptyOpacity = useRef(new Animated.Value(0)).current;
+  const today = new Date();
+  const week = useMemo(() => { const ws = startOfWeek(selected); return Array.from({ length: 7 }, (_, i) => addDays(ws, i)); }, [selected]);
+  const cours = coursOf(selected);
 
-  useEffect(() => {
-    const hasData = (MOCK_TIMETABLE[selectedDay] || []).length > 0;
-    if (!hasData) {
-      Animated.parallel([
-        Animated.spring(emptyScale, {
-          toValue: 1,
-          damping: 25,
-          useNativeDriver: true,
-        }),
-        Animated.timing(emptyOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [selectedDay]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
-
-  if (!user) return <LoadingSpinner fullScreen />;
-
-  const currentCours = MOCK_TIMETABLE[selectedDay] || [];
-  const hasData = currentCours.length > 0;
-  const totalCourses = Object.values(MOCK_TIMETABLE).reduce((acc, arr) => acc + arr.length, 0);
+  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); };
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      <LinearGradient
+        pointerEvents="none"
+        colors={[`${BRAND_VIOLET}33`, `${BRAND_ORANGE}1A`, 'transparent']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={[StyleSheet.absoluteFill, { height: 340 }]}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
-        }
+        contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <Header children="Emploi du temps" />
-
-        {/* Sélecteur de jour */}
-        <View style={{ marginTop: 8 }}>
-          <DaySelector selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+        {/* Retour + titre */}
+        <View style={styles.topBar}>
+          <TouchableOpacity activeOpacity={0.75} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Retour" style={[styles.backBtn, { backgroundColor: colors.surfaceElevated }]}>
+            <Feather name="arrow-left" size={18} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.screenTitle, { color: colors.text }]}>Emploi du temps</Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        {/* Cours du jour */}
-        <View style={{ paddingHorizontal: 16, paddingBottom: 32 }}>
-          {/* En-tête du jour */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '700',
-                color: C.textSecondary,
-                letterSpacing: 0.5,
-                textTransform: 'uppercase',
-              }}
-            >
-              {selectedDay}
-            </Text>
-            <Text style={{ fontSize: 11, color: C.textMuted }}>
-              {hasData ? `${currentCours.length} cours` : 'Aucun cours'}
-            </Text>
+        {/* ───── CALENDRIER SEMAINE ───── */}
+        <View style={[styles.calendar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.monthRow}>
+            <View>
+              <Text style={[styles.month, { color: colors.text }]}>{MOIS[selected.getMonth()]} {selected.getFullYear()}</Text>
+              <Text style={[styles.monthSub, { color: colors.textMuted }]}>{JOURS[selected.getDay()]} {selected.getDate()}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity onPress={() => setSelected(addDays(selected, -7))} accessibilityRole="button" accessibilityLabel="Semaine précédente" style={styles.chevBtn}>
+                <Feather name="chevron-left" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSelected(addDays(selected, 7))} accessibilityRole="button" accessibilityLabel="Semaine suivante" style={styles.chevBtn}>
+                <Feather name="chevron-right" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {hasData ? (
-            currentCours.map((cours, index) => (
-              <CourseCard key={cours.id} course={cours} index={index} />
-            ))
+          <View style={styles.weekRow}>
+            {week.map((d, i) => {
+              const active = sameDay(d, selected);
+              const isToday = sameDay(d, today);
+              const has = coursOf(d).length > 0;
+              return (
+                <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setSelected(d)} accessibilityRole="button" style={styles.dayCol}>
+                  <Text style={[styles.dayName, { color: colors.textMuted }]}>{JOURS_COURTS[i]}</Text>
+                  {active ? (
+                    <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dayCircle}>
+                      <Text style={[styles.dayNum, { color: '#FFFFFF', fontWeight: '700' }]}>{d.getDate()}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.dayCircle}>
+                      <Text style={[styles.dayNum, { color: isToday ? BRAND_VIOLET : colors.text, fontWeight: isToday ? '700' : '500' }]}>{d.getDate()}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.dot, { backgroundColor: has ? (active ? BRAND_VIOLET : colors.textMuted) : 'transparent' }]} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ───── COURS DU JOUR ───── */}
+        <View key={selected.toDateString()} style={{ paddingHorizontal: 22 }}>
+          <FadeIn>
+            <View style={styles.sectionRow}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Cours du jour</Text>
+              <Text style={[styles.sectionCount, { color: colors.textMuted }]}>{cours.length > 0 ? `${cours.length} cours` : ''}</Text>
+            </View>
+          </FadeIn>
+
+          {cours.length > 0 ? (
+            cours.map((c, i) => {
+              const meta = TYPE_META[c.type || 'CM'];
+              return (
+                <FadeIn key={c.id} delay={60 + i * 70}>
+                  <View style={[styles.item, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+                    <View style={[styles.iconCircle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                      <GradientIcon name={meta.icon} size={18} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.itemLabel, { color: colors.textMuted }]}>{meta.label}</Text>
+                      <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{c.matiere}</Text>
+                      <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                        {c.heureDebut} – {c.heureFin}  ·  {c.salle}  ·  {c.professeur}
+                      </Text>
+                    </View>
+                  </View>
+                </FadeIn>
+              );
+            })
           ) : (
-            <Animated.View
-              style={{
-                transform: [{ scale: emptyScale }],
-                opacity: emptyOpacity,
-              }}
-            >
-              <EmptyState
-                title="Aucun cours"
-                description="Aucun cours n'est planifié pour ce jour"
-                icon="calendar"
-                variant="compact"
-              />
-            </Animated.View>
+            <FadeIn delay={80}>
+              <View style={styles.empty}>
+                <GradientIcon name="calendar" size={30} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun cours</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Rien de planifié pour cette journée</Text>
+              </View>
+            </FadeIn>
           )}
-
-          {/* Footer */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              marginTop: hasData ? 12 : 0,
-              paddingVertical: 12,
-            }}
-          >
-            <Feather name="info" size={12} color={C.textMuted} />
-            <Text style={{ fontSize: 10, color: C.textMuted }}>
-              {totalCourses} cours au total sur la semaine
-            </Text>
-          </View>
         </View>
       </ScrollView>
     </View>
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 18 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  screenTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+
+  calendar: { marginHorizontal: 16, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, paddingTop: 20, paddingBottom: 14, paddingHorizontal: 12 },
+  monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, marginBottom: 18 },
+  month: { fontSize: 20, fontWeight: '600', letterSpacing: -0.4 },
+  monthSub: { fontSize: 12.5, marginTop: 3 },
+  chevBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+
+  weekRow: { flexDirection: 'row' },
+  dayCol: { flex: 1, alignItems: 'center' },
+  dayName: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
+  dayCircle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  dayNum: { fontSize: 15 },
+  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 6 },
+
+  sectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 30, marginBottom: 6 },
+  sectionTitle: { fontSize: 19, fontWeight: '600', letterSpacing: -0.4 },
+  sectionCount: { fontSize: 12.5 },
+
+  item: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
+  iconCircle: { width: 44, height: 44, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  itemLabel: { fontSize: 11.5, marginBottom: 2 },
+  itemTitle: { fontSize: 16, fontWeight: '600', letterSpacing: -0.2 },
+  itemMeta: { fontSize: 12.5, marginTop: 3 },
+
+  empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', marginTop: 6 },
+  emptyText: { fontSize: 12.5 },
+});

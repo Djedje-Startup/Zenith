@@ -12,38 +12,16 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Layout } from '../../components/ui/Layout';
-import { Card } from '../../components/ui/Card';
+import { useTheme } from '../../theme';
 
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
-
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Room {
   id: string;
   nom: string;
@@ -79,10 +57,13 @@ interface MyReservation {
   dateReservation: string;
 }
 
+// ──────────────────────────────────────────────────────────────
+// CONSTANTES
+// ──────────────────────────────────────────────────────────────
 const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 const JOURS_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const ROOM_TYPES = ['Toutes', 'Salle de classe', 'Laboratoire', 'Amphithéâtre', 'Espace de travail', 'Salle de réunion'];
 
-// Génération d'un code de réservation unique
 const generateReservationCode = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = 'RES-';
@@ -92,6 +73,9 @@ const generateReservationCode = () => {
   return code;
 };
 
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_ROOMS: Room[] = [
   {
     id: '1',
@@ -182,9 +166,38 @@ const MOCK_ROOMS: Room[] = [
   },
 ];
 
-const ROOM_TYPES = ['Toutes', 'Salle de classe', 'Laboratoire', 'Amphithéâtre', 'Espace de travail', 'Salle de réunion'];
+const MOCK_RESERVATIONS: MyReservation[] = [
+  {
+    id: 'r1',
+    roomId: '1',
+    roomName: 'Salle A101',
+    roomType: 'Salle de classe',
+    date: '20/12/2025',
+    heureDebut: '10:00',
+    heureFin: '12:00',
+    motif: 'Travail de groupe sur le projet de mathématiques',
+    statut: 'confirmee',
+    codeReservation: 'RES-X7K9M2P4',
+    dateReservation: '15/12/2025',
+  },
+  {
+    id: 'r2',
+    roomId: '4',
+    roomName: 'Bibliothèque',
+    roomType: 'Espace de travail',
+    date: '22/12/2025',
+    heureDebut: '14:00',
+    heureFin: '17:00',
+    motif: 'Révision pour les examens',
+    statut: 'en_attente',
+    codeReservation: 'RES-A3F8D1Q7',
+    dateReservation: '16/12/2025',
+  },
+];
 
-// Modal de réservation
+// ──────────────────────────────────────────────────────────────
+// MODAL DE RÉSERVATION
+// ──────────────────────────────────────────────────────────────
 interface ReservationModalProps {
   visible: boolean;
   room: Room | null;
@@ -198,6 +211,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
   onClose,
   onConfirm,
 }) => {
+  const { colors } = useTheme();
   const [date, setDate] = useState('');
   const [heureDebut, setHeureDebut] = useState('');
   const [heureFin, setHeureFin] = useState('');
@@ -207,26 +221,6 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
   const handleConfirm = () => {
     if (!date || !heureDebut || !heureFin || !motif) {
       Alert.alert('Champs manquants', 'Veuillez remplir tous les champs');
-      return;
-    }
-
-    // Vérifier que la capacité est respectée (pas de réservation individuelle pour les salles de classe)
-    if (room?.type === 'Salle de classe' && room?.capacite > 1) {
-      Alert.alert(
-        'Attention',
-        'Les salles de classe sont réservées pour des activités collectives (minimum 2 personnes). Souhaitez-vous continuer ?',
-        [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Continuer', onPress: () => {
-            setIsLoading(true);
-            setTimeout(() => {
-              setIsLoading(false);
-              onConfirm({ date, heureDebut, heureFin, motif });
-              onClose();
-            }, 1500);
-          }},
-        ]
-      );
       return;
     }
 
@@ -249,11 +243,11 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
     >
       <View style={{
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
+        backgroundColor: 'rgba(0,0,0,0.6)',
         justifyContent: 'flex-end',
       }}>
         <View style={{
-          backgroundColor: C.surface,
+          backgroundColor: colors.surface,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
           paddingHorizontal: 20,
@@ -263,7 +257,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
           <View style={{
             width: 40,
             height: 4,
-            backgroundColor: C.border,
+            backgroundColor: colors.border,
             borderRadius: 2,
             alignSelf: 'center',
             marginTop: 10,
@@ -273,14 +267,14 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
           <Text style={{
             fontSize: 22,
             fontWeight: '700',
-            color: C.textPrimary,
+            color: colors.text,
             marginBottom: 4,
           }}>
             Réserver {room.nom}
           </Text>
           <Text style={{
             fontSize: 13,
-            color: C.textMuted,
+            color: colors.textMuted,
             marginBottom: 20,
           }}>
             {room.type} • Capacité: {room.capacite} personnes
@@ -291,7 +285,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
               <Text style={{
                 fontSize: 12,
                 fontWeight: '600',
-                color: C.textMuted,
+                color: colors.textMuted,
                 marginBottom: 6,
                 textTransform: 'uppercase',
                 letterSpacing: 0.8,
@@ -300,17 +294,17 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
               </Text>
               <TextInput
                 style={{
-                  backgroundColor: C.surfaceAlt,
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: C.border,
+                  borderColor: colors.border,
                   paddingHorizontal: 14,
                   paddingVertical: 12,
                   fontSize: 15,
-                  color: C.textPrimary,
+                  color: colors.text,
                 }}
                 placeholder="Ex: 25/12/2025"
-                placeholderTextColor={C.textDim}
+                placeholderTextColor={colors.textMuted}
                 value={date}
                 onChangeText={setDate}
               />
@@ -321,7 +315,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
                 <Text style={{
                   fontSize: 12,
                   fontWeight: '600',
-                  color: C.textMuted,
+                  color: colors.textMuted,
                   marginBottom: 6,
                   textTransform: 'uppercase',
                   letterSpacing: 0.8,
@@ -330,17 +324,17 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
                 </Text>
                 <TextInput
                   style={{
-                    backgroundColor: C.surfaceAlt,
+                    backgroundColor: colors.surfaceElevated,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: C.border,
+                    borderColor: colors.border,
                     paddingHorizontal: 14,
                     paddingVertical: 12,
                     fontSize: 15,
-                    color: C.textPrimary,
+                    color: colors.text,
                   }}
                   placeholder="Ex: 14:00"
-                  placeholderTextColor={C.textDim}
+                  placeholderTextColor={colors.textMuted}
                   value={heureDebut}
                   onChangeText={setHeureDebut}
                 />
@@ -350,7 +344,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
                 <Text style={{
                   fontSize: 12,
                   fontWeight: '600',
-                  color: C.textMuted,
+                  color: colors.textMuted,
                   marginBottom: 6,
                   textTransform: 'uppercase',
                   letterSpacing: 0.8,
@@ -359,17 +353,17 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
                 </Text>
                 <TextInput
                   style={{
-                    backgroundColor: C.surfaceAlt,
+                    backgroundColor: colors.surfaceElevated,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: C.border,
+                    borderColor: colors.border,
                     paddingHorizontal: 14,
                     paddingVertical: 12,
                     fontSize: 15,
-                    color: C.textPrimary,
+                    color: colors.text,
                   }}
                   placeholder="Ex: 16:00"
-                  placeholderTextColor={C.textDim}
+                  placeholderTextColor={colors.textMuted}
                   value={heureFin}
                   onChangeText={setHeureFin}
                 />
@@ -380,7 +374,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
               <Text style={{
                 fontSize: 12,
                 fontWeight: '600',
-                color: C.textMuted,
+                color: colors.textMuted,
                 marginBottom: 6,
                 textTransform: 'uppercase',
                 letterSpacing: 0.8,
@@ -389,19 +383,19 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
               </Text>
               <TextInput
                 style={{
-                  backgroundColor: C.surfaceAlt,
+                  backgroundColor: colors.surfaceElevated,
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: C.border,
+                  borderColor: colors.border,
                   paddingHorizontal: 14,
                   paddingVertical: 12,
                   fontSize: 15,
-                  color: C.textPrimary,
+                  color: colors.text,
                   minHeight: 80,
                   textAlignVertical: 'top',
                 }}
                 placeholder="Décrivez l'utilisation prévue..."
-                placeholderTextColor={C.textDim}
+                placeholderTextColor={colors.textMuted}
                 value={motif}
                 onChangeText={setMotif}
                 multiline
@@ -417,16 +411,16 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
                   flex: 1,
                   paddingVertical: 14,
                   borderRadius: 14,
-                  backgroundColor: C.surfaceAlt,
+                  backgroundColor: colors.surfaceElevated,
                   borderWidth: 1,
-                  borderColor: C.border,
+                  borderColor: colors.border,
                   alignItems: 'center',
                 }}
               >
                 <Text style={{
                   fontSize: 15,
                   fontWeight: '600',
-                  color: C.textMuted,
+                  color: colors.textMuted,
                 }}>
                   Annuler
                 </Text>
@@ -440,7 +434,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
                   flex: 2,
                   paddingVertical: 14,
                   borderRadius: 14,
-                  backgroundColor: isLoading ? C.textMuted : C.accent,
+                  backgroundColor: isLoading ? colors.textMuted : colors.primary,
                   alignItems: 'center',
                 }}
               >
@@ -464,8 +458,11 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
   );
 };
 
-// Screen principal
+// ──────────────────────────────────────────────────────────────
+// SCREEN PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const StudentRoomsScreen: React.FC = () => {
+  const { colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [rooms, setRooms] = useState(MOCK_ROOMS);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -473,36 +470,7 @@ export const StudentRoomsScreen: React.FC = () => {
   const [selectedType, setSelectedType] = useState('Toutes');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'disponibles' | 'mesReservations'>('disponibles');
-  
-  // Mes réservations
-  const [myReservations, setMyReservations] = useState<MyReservation[]>([
-    {
-      id: 'r1',
-      roomId: '1',
-      roomName: 'Salle A101',
-      roomType: 'Salle de classe',
-      date: '20/12/2025',
-      heureDebut: '10:00',
-      heureFin: '12:00',
-      motif: 'Travail de groupe sur le projet de mathématiques',
-      statut: 'confirmee',
-      codeReservation: 'RES-X7K9M2P4',
-      dateReservation: '15/12/2025',
-    },
-    {
-      id: 'r2',
-      roomId: '4',
-      roomName: 'Bibliothèque',
-      roomType: 'Espace de travail',
-      date: '22/12/2025',
-      heureDebut: '14:00',
-      heureFin: '17:00',
-      motif: 'Révision pour les examens',
-      statut: 'en_attente',
-      codeReservation: 'RES-A3F8D1Q7',
-      dateReservation: '16/12/2025',
-    },
-  ]);
+  const [myReservations, setMyReservations] = useState(MOCK_RESERVATIONS);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -533,7 +501,6 @@ export const StudentRoomsScreen: React.FC = () => {
 
     setMyReservations([newReservation, ...myReservations]);
 
-    // Mettre à jour la disponibilité de la salle
     setRooms(rooms.map(room =>
       room.id === selectedRoom.id ? { ...room, disponible: false } : room
     ));
@@ -557,7 +524,6 @@ export const StudentRoomsScreen: React.FC = () => {
           style: 'destructive',
           onPress: () => {
             setMyReservations(myReservations.filter(r => r.id !== reservationId));
-            // Réactiver la disponibilité de la salle
             setRooms(rooms.map(room =>
               room.id === roomId ? { ...room, disponible: true } : room
             ));
@@ -577,6 +543,7 @@ export const StudentRoomsScreen: React.FC = () => {
 
   const availableCount = rooms.filter(r => r.disponible).length;
 
+  // ─── Rendu des disponibilités ───
   const renderDisponibilites = (room: Room) => {
     if (!room.disponibilites) return null;
     
@@ -589,7 +556,7 @@ export const StudentRoomsScreen: React.FC = () => {
         <Text style={{
           fontSize: 10,
           fontWeight: '700',
-          color: C.textMuted,
+          color: colors.textMuted,
           textTransform: 'uppercase',
           letterSpacing: 0.8,
           marginBottom: 6,
@@ -602,16 +569,16 @@ export const StudentRoomsScreen: React.FC = () => {
             const jourIndex = JOURS.indexOf(jour);
             return (
               <View key={jour} style={{
-                backgroundColor: C.surfaceAlt,
+                backgroundColor: colors.surfaceElevated,
                 borderRadius: 6,
                 paddingHorizontal: 8,
                 paddingVertical: 3,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
               }}>
                 <Text style={{
                   fontSize: 9,
-                  color: C.textSecondary,
+                  color: colors.textSecondary,
                 }}>
                   {JOURS_LABELS[jourIndex]}: {dispo?.debut || '--'} - {dispo?.fin || '--'}
                 </Text>
@@ -623,25 +590,317 @@ export const StudentRoomsScreen: React.FC = () => {
     );
   };
 
+  // ─── Configuration du statut ───
   const getStatutConfig = (statut: string) => {
-    switch (statut) {
-      case 'confirmee':
-        return { label: 'Confirmée', color: C.green, bg: C.greenBg, icon: 'check-circle' };
-      case 'en_attente':
-        return { label: 'En attente', color: C.amber, bg: C.amberBg, icon: 'clock' };
-      case 'annulee':
-        return { label: 'Annulée', color: C.red, bg: C.redBg, icon: 'x-circle' };
-      default:
-        return { label: statut, color: C.textMuted, bg: C.surfaceAlt, icon: 'circle' };
-    }
+    const configs: Record<string, { label: string; color: string; bg: string; icon: keyof typeof Feather.glyphMap }> = {
+      confirmee: { label: 'Confirmée', color: colors.success, bg: colors.success + '15', icon: 'check-circle' },
+      en_attente: { label: 'En attente', color: colors.warning, bg: colors.warning + '15', icon: 'clock' },
+      annulee: { label: 'Annulée', color: colors.error, bg: colors.error + '15', icon: 'x-circle' },
+    };
+    return configs[statut] || { label: statut, color: colors.textMuted, bg: colors.surfaceElevated, icon: 'circle' };
   };
 
+  // ─── Rendu d'une carte de salle (sans le composant Card) ───
+  const renderRoomCard = ({ item }: { item: Room }) => (
+    <View style={{ marginBottom: 12 }}>
+      {/* ✅ CARTE CLAIRE - remplacement du composant Card */}
+      <View style={{
+        backgroundColor: colors.surface,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 16,
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '700',
+              color: colors.text,
+            }}>
+              {item.nom}
+            </Text>
+            <Text style={{
+              fontSize: 13,
+              color: colors.textSecondary,
+              marginTop: 2,
+            }}>
+              {item.type}
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              marginTop: 4,
+            }}>
+              <Feather name="users" size={14} color={colors.textMuted} />
+              <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                Capacité: {item.capacite} personnes
+              </Text>
+            </View>
+          </View>
+          <View style={{
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 6,
+            backgroundColor: item.disponible ? colors.success + '15' : colors.error + '15',
+          }}>
+            <Text style={{
+              fontSize: 10,
+              fontWeight: '700',
+              color: item.disponible ? colors.success : colors.error,
+            }}>
+              {item.disponible ? 'Disponible' : 'Occupée'}
+            </Text>
+          </View>
+        </View>
+
+        {item.description && (
+          <Text style={{
+            fontSize: 13,
+            color: colors.textSecondary,
+            marginTop: 10,
+            lineHeight: 18,
+          }}>
+            {item.description}
+          </Text>
+        )}
+
+        {item.equipements && item.equipements.length > 0 && (
+          <View style={{ marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {item.equipements.map((equip, idx) => (
+                <View key={idx} style={{
+                  backgroundColor: colors.primaryBg,
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                }}>
+                  <Text style={{ fontSize: 10, color: colors.primary }}>
+                    {equip}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {renderDisponibilites(item)}
+
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 10,
+          paddingTop: 10,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Feather name="tag" size={14} color={colors.textMuted} />
+            <Text style={{ fontSize: 11, color: colors.textMuted }}>
+              {item.prix || 'Gratuit'}
+            </Text>
+          </View>
+        </View>
+
+        {item.disponible ? (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => handleReserve(item)}
+            style={{
+              marginTop: 12,
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+              paddingVertical: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <Feather name="calendar" size={18} color="#FFFFFF" />
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: '#FFFFFF',
+            }}>
+              Réserver cette salle
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{
+            marginTop: 12,
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 12,
+            paddingVertical: 12,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}>
+            <Text style={{
+              fontSize: 13,
+              color: colors.textMuted,
+            }}>
+              Salle actuellement occupée
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  // ─── Rendu d'une carte de réservation (sans le composant Card) ───
+  const renderReservationCard = ({ item }: { item: MyReservation }) => {
+    const statutConfig = getStatutConfig(item.statut);
+    return (
+      <View style={{ marginBottom: 12 }}>
+        {/* ✅ CARTE CLAIRE - remplacement du composant Card */}
+        <View style={{
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: 16,
+        }}>
+          {/* Code de réservation */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 8,
+          }}>
+            <View style={{
+              backgroundColor: colors.primaryBg,
+              borderRadius: 8,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+            }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '700',
+                color: colors.primary,
+                letterSpacing: 1,
+              }}>
+                {item.codeReservation}
+              </Text>
+            </View>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: statutConfig.bg,
+              borderRadius: 6,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}>
+              <Feather name={statutConfig.icon as any} size={10} color={statutConfig.color} />
+              <Text style={{
+                fontSize: 9,
+                fontWeight: '700',
+                color: statutConfig.color,
+              }}>
+                {statutConfig.label}
+              </Text>
+            </View>
+          </View>
+
+          {/* Infos salle */}
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: colors.text,
+          }}>
+            {item.roomName}
+          </Text>
+          <Text style={{
+            fontSize: 13,
+            color: colors.textSecondary,
+            marginTop: 2,
+          }}>
+            {item.roomType}
+          </Text>
+
+          {/* Détails */}
+          <View style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
+            marginTop: 10,
+            paddingTop: 10,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Feather name="calendar" size={14} color={colors.textMuted} />
+              <Text style={{ fontSize: 12, color: colors.textMuted }}>{item.date}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Feather name="clock" size={14} color={colors.textMuted} />
+              <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                {item.heureDebut} - {item.heureFin}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={{
+            fontSize: 13,
+            color: colors.textSecondary,
+            marginTop: 8,
+            fontStyle: 'italic',
+          }}>
+            {item.motif}
+          </Text>
+
+          <Text style={{
+            fontSize: 10,
+            color: colors.textMuted,
+            marginTop: 6,
+          }}>
+            Réservé le {item.dateReservation}
+          </Text>
+
+          {/* Boutons d'action */}
+          {item.statut !== 'annulee' && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => handleCancelReservation(item.id, item.roomId)}
+              style={{
+                marginTop: 12,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: colors.error + '15',
+                borderWidth: 1,
+                borderColor: colors.error + '30',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: colors.error,
+              }}>
+                Annuler la réservation
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  // ─── RENDU ───
   return (
     <Layout variant="default">
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        {/* Header */}
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+        {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
         <LinearGradient
-          colors={['#1E1B4B', '#312E81', '#4F46E5']}
+          colors={[colors.primary, colors.secondary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -652,12 +911,16 @@ export const StudentRoomsScreen: React.FC = () => {
             borderBottomRightRadius: 28,
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
             <View>
               <Text style={{
                 fontSize: 12,
                 fontWeight: '700',
-                color: 'rgba(255,255,255,0.5)',
+                color: 'rgba(255,255,255,0.6)',
                 letterSpacing: 1.5,
                 textTransform: 'uppercase',
               }}>
@@ -674,7 +937,7 @@ export const StudentRoomsScreen: React.FC = () => {
               </Text>
             </View>
             <View style={{
-              backgroundColor: 'rgba(255,255,255,0.12)',
+              backgroundColor: 'rgba(255,255,255,0.2)',
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 10,
@@ -699,10 +962,10 @@ export const StudentRoomsScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Tab switcher */}
+          {/* ─── TAB SWITCHER ─── */}
           <View style={{
             flexDirection: 'row',
-            backgroundColor: 'rgba(255,255,255,0.06)',
+            backgroundColor: 'rgba(255,255,255,0.12)',
             borderRadius: 12,
             padding: 4,
             marginTop: 12,
@@ -714,7 +977,7 @@ export const StudentRoomsScreen: React.FC = () => {
                 flex: 1,
                 paddingVertical: 8,
                 borderRadius: 10,
-                backgroundColor: activeTab === 'disponibles' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                backgroundColor: activeTab === 'disponibles' ? 'rgba(255,255,255,0.2)' : 'transparent',
                 alignItems: 'center',
               }}
             >
@@ -733,7 +996,7 @@ export const StudentRoomsScreen: React.FC = () => {
                 flex: 1,
                 paddingVertical: 8,
                 borderRadius: 10,
-                backgroundColor: activeTab === 'mesReservations' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                backgroundColor: activeTab === 'mesReservations' ? 'rgba(255,255,255,0.2)' : 'transparent',
                 alignItems: 'center',
               }}
             >
@@ -749,7 +1012,7 @@ export const StudentRoomsScreen: React.FC = () => {
         </LinearGradient>
 
         {activeTab === 'disponibles' ? (
-          // Vue des salles disponibles
+          // ─── VUE DES SALLES DISPONIBLES ───
           <View style={{ flex: 1 }}>
             {/* Filtres */}
             <View style={{
@@ -760,24 +1023,24 @@ export const StudentRoomsScreen: React.FC = () => {
               <View style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: C.surfaceAlt,
+                backgroundColor: colors.surface,
                 borderRadius: 12,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
                 paddingHorizontal: 14,
                 marginBottom: 12,
               }}>
-                <Feather name="search" size={18} color={C.textMuted} />
+                <Feather name="search" size={18} color={colors.textMuted} />
                 <TextInput
                   style={{
                     flex: 1,
                     fontSize: 15,
-                    color: C.textPrimary,
+                    color: colors.text,
                     paddingVertical: 10,
                     paddingHorizontal: 10,
                   }}
                   placeholder="Rechercher une salle..."
-                  placeholderTextColor={C.textDim}
+                  placeholderTextColor={colors.textMuted}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                 />
@@ -797,15 +1060,15 @@ export const StudentRoomsScreen: React.FC = () => {
                       paddingHorizontal: 14,
                       paddingVertical: 6,
                       borderRadius: 20,
-                      backgroundColor: selectedType === type ? C.accent : C.surfaceAlt,
+                      backgroundColor: selectedType === type ? colors.primary : colors.surface,
                       borderWidth: 1,
-                      borderColor: selectedType === type ? C.accent : C.border,
+                      borderColor: selectedType === type ? colors.primary : colors.border,
                     }}
                   >
                     <Text style={{
                       fontSize: 12,
                       fontWeight: selectedType === type ? '700' : '600',
-                      color: selectedType === type ? '#FFFFFF' : C.textSecondary,
+                      color: selectedType === type ? '#FFFFFF' : colors.textSecondary,
                     }}>
                       {type}
                     </Text>
@@ -818,138 +1081,14 @@ export const StudentRoomsScreen: React.FC = () => {
               data={filteredRooms}
               keyExtractor={(item) => item.id}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={colors.primary}
+                />
               }
               contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-              renderItem={({ item }) => (
-                <View style={{ marginBottom: 12 }}>
-                  <Card variant="default" padding="md">
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>
-                          {item.nom}
-                        </Text>
-                        <Text style={{ fontSize: 13, color: C.textSecondary, marginTop: 2 }}>
-                          {item.type}
-                        </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                          <Feather name="users" size={14} color={C.textMuted} />
-                          <Text style={{ fontSize: 12, color: C.textMuted }}>
-                            Capacité: {item.capacite} personnes
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        borderRadius: 6,
-                        backgroundColor: item.disponible ? C.greenBg : C.redBg,
-                      }}>
-                        <Text style={{
-                          fontSize: 10,
-                          fontWeight: '700',
-                          color: item.disponible ? C.green : C.red,
-                        }}>
-                          {item.disponible ? 'Disponible' : 'Occupée'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {item.description && (
-                      <Text style={{
-                        fontSize: 13,
-                        color: C.textSecondary,
-                        marginTop: 10,
-                        lineHeight: 18,
-                      }}>
-                        {item.description}
-                      </Text>
-                    )}
-
-                    {item.equipements && item.equipements.length > 0 && (
-                      <View style={{ marginTop: 10 }}>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                          {item.equipements.map((equip, idx) => (
-                            <View key={idx} style={{
-                              backgroundColor: C.accentBg,
-                              borderRadius: 6,
-                              paddingHorizontal: 8,
-                              paddingVertical: 3,
-                            }}>
-                              <Text style={{ fontSize: 10, color: C.accentDim }}>
-                                {equip}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-
-                    {renderDisponibilites(item)}
-
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      marginTop: 10,
-                      paddingTop: 10,
-                      borderTopWidth: 1,
-                      borderTopColor: C.border,
-                    }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Feather name="tag" size={14} color={C.textMuted} />
-                        <Text style={{ fontSize: 11, color: C.textMuted }}>
-                          {item.prix || 'Gratuit'}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {item.disponible && (
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => handleReserve(item)}
-                        style={{
-                          marginTop: 12,
-                          backgroundColor: C.accent,
-                          borderRadius: 12,
-                          paddingVertical: 12,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 8,
-                        }}
-                      >
-                        <Feather name="calendar" size={18} color="#FFFFFF" />
-                        <Text style={{
-                          fontSize: 14,
-                          fontWeight: '600',
-                          color: '#FFFFFF',
-                        }}>
-                          Réserver cette salle
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {!item.disponible && (
-                      <View style={{
-                        marginTop: 12,
-                        backgroundColor: C.surfaceAlt,
-                        borderRadius: 12,
-                        paddingVertical: 12,
-                        alignItems: 'center',
-                        borderWidth: 1,
-                        borderColor: C.border,
-                      }}>
-                        <Text style={{
-                          fontSize: 13,
-                          color: C.textMuted,
-                        }}>
-                          Salle actuellement occupée
-                        </Text>
-                      </View>
-                    )}
-                  </Card>
-                </View>
-              )}
+              renderItem={renderRoomCard}
               ListEmptyComponent={
                 <View style={{
                   padding: 40,
@@ -959,17 +1098,26 @@ export const StudentRoomsScreen: React.FC = () => {
                     width: 80,
                     height: 80,
                     borderRadius: 24,
-                    backgroundColor: C.accentBg,
+                    backgroundColor: colors.primaryBg,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 16,
                   }}>
-                    <Feather name="map-pin" size={36} color={C.accentDim} />
+                    <Feather name="map-pin" size={36} color={colors.primary} />
                   </View>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: colors.text,
+                  }}>
                     Aucune salle trouvée
                   </Text>
-                  <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'center', marginTop: 4 }}>
+                  <Text style={{
+                    fontSize: 13,
+                    color: colors.textMuted,
+                    textAlign: 'center',
+                    marginTop: 4,
+                  }}>
                     Aucune salle ne correspond à vos critères
                   </Text>
                 </View>
@@ -977,144 +1125,19 @@ export const StudentRoomsScreen: React.FC = () => {
             />
           </View>
         ) : (
-          // Vue Mes réservations
+          // ─── VUE MES RÉSERVATIONS ───
           <FlatList
             data={myReservations}
             keyExtractor={(item) => item.id}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
             }
             contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-            renderItem={({ item }) => {
-              const statutConfig = getStatutConfig(item.statut);
-              return (
-                <View style={{ marginBottom: 12 }}>
-                  <Card variant="default" padding="md">
-                    {/* Code de réservation */}
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: 8,
-                    }}>
-                      <View style={{
-                        backgroundColor: C.accentBg,
-                        borderRadius: 8,
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                      }}>
-                        <Text style={{
-                          fontSize: 11,
-                          fontWeight: '700',
-                          color: C.accentDim,
-                          letterSpacing: 1,
-                        }}>
-                          {item.codeReservation}
-                        </Text>
-                      </View>
-                      <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 6,
-                        backgroundColor: statutConfig.bg,
-                        borderRadius: 6,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                      }}>
-                        <Feather name={statutConfig.icon as any} size={10} color={statutConfig.color} />
-                        <Text style={{
-                          fontSize: 9,
-                          fontWeight: '700',
-                          color: statutConfig.color,
-                        }}>
-                          {statutConfig.label}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Infos salle */}
-                    <Text style={{
-                      fontSize: 18,
-                      fontWeight: '700',
-                      color: C.textPrimary,
-                    }}>
-                      {item.roomName}
-                    </Text>
-                    <Text style={{
-                      fontSize: 13,
-                      color: C.textSecondary,
-                      marginTop: 2,
-                    }}>
-                      {item.roomType}
-                    </Text>
-
-                    {/* Détails */}
-                    <View style={{
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                      gap: 12,
-                      marginTop: 10,
-                      paddingTop: 10,
-                      borderTopWidth: 1,
-                      borderTopColor: C.border,
-                    }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Feather name="calendar" size={14} color={C.textMuted} />
-                        <Text style={{ fontSize: 12, color: C.textMuted }}>{item.date}</Text>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Feather name="clock" size={14} color={C.textMuted} />
-                        <Text style={{ fontSize: 12, color: C.textMuted }}>
-                          {item.heureDebut} - {item.heureFin}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text style={{
-                      fontSize: 13,
-                      color: C.textSecondary,
-                      marginTop: 8,
-                      fontStyle: 'italic',
-                    }}>
-                      {item.motif}
-                    </Text>
-
-                    <Text style={{
-                      fontSize: 10,
-                      color: C.textDim,
-                      marginTop: 6,
-                    }}>
-                      Réservé le {item.dateReservation}
-                    </Text>
-
-                    {/* Boutons d'action */}
-                    {item.statut !== 'annulee' && (
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => handleCancelReservation(item.id, item.roomId)}
-                        style={{
-                          marginTop: 12,
-                          paddingVertical: 10,
-                          borderRadius: 12,
-                          backgroundColor: C.redBg,
-                          borderWidth: 1,
-                          borderColor: C.red + '30',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text style={{
-                          fontSize: 13,
-                          fontWeight: '600',
-                          color: C.red,
-                        }}>
-                          Annuler la réservation
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </Card>
-                </View>
-              );
-            }}
+            renderItem={renderReservationCard}
             ListEmptyComponent={
               <View style={{
                 padding: 40,
@@ -1124,17 +1147,26 @@ export const StudentRoomsScreen: React.FC = () => {
                   width: 80,
                   height: 80,
                   borderRadius: 24,
-                  backgroundColor: C.accentBg,
+                  backgroundColor: colors.primaryBg,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 16,
                 }}>
-                  <Feather name="calendar" size={36} color={C.accentDim} />
+                  <Feather name="calendar" size={36} color={colors.primary} />
                 </View>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: C.textPrimary }}>
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: colors.text,
+                }}>
                   Aucune réservation
                 </Text>
-                <Text style={{ fontSize: 13, color: C.textMuted, textAlign: 'center', marginTop: 4 }}>
+                <Text style={{
+                  fontSize: 13,
+                  color: colors.textMuted,
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}>
                   Vous n'avez pas encore de réservation de salle
                 </Text>
               </View>
@@ -1142,7 +1174,7 @@ export const StudentRoomsScreen: React.FC = () => {
           />
         )}
 
-        {/* Modal de réservation */}
+        {/* ─── MODAL DE RÉSERVATION ─── */}
         <ReservationModal
           visible={modalVisible}
           room={selectedRoom}
@@ -1154,6 +1186,5 @@ export const StudentRoomsScreen: React.FC = () => {
         />
       </View>
     </Layout>
-    
   );
 };

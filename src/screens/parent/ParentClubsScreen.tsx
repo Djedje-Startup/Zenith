@@ -12,42 +12,13 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../../hooks/useAuth';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { EmptyState } from '../../components/animations/EmptyState';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  pink: '#F472B6',
-  pinkBg: 'rgba(244,114,182,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
+// ─── GRADIENTS TYPES ──────────────────────────────────────────────────────
+const GRADIENT_BRAND: [string, string] = ['#F97316', '#8B5CF6'];
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── TYPES ──────────────────────────────────────────────────────────────────
 interface Club {
   id: string;
   nom: string;
@@ -60,13 +31,13 @@ interface Club {
   categories?: string[];
 }
 
-// ─── Mock data ──────────────────────────────────────────────────────────────
+// ─── MOCK DATA ──────────────────────────────────────────────────────────────
 const MOCK_CLUBS: Club[] = [
   {
     id: '1',
     nom: 'Club Informatique',
     description: 'Découverte du code, de la robotique et des nouvelles technologies',
-    couleur: '#6366F1',
+    couleur: '#F97316',
     nbMembres: 45,
     isMember: true,
     role: 'Membre',
@@ -77,7 +48,7 @@ const MOCK_CLUBS: Club[] = [
     id: '2',
     nom: 'Club Sportif',
     description: 'Football, basket, athlétisme et autres activités sportives',
-    couleur: '#34D399',
+    couleur: '#8B5CF6',
     nbMembres: 78,
     isMember: false,
     prochainEvent: 'Tournoi interclasses - 15 Nov 2025',
@@ -87,7 +58,7 @@ const MOCK_CLUBS: Club[] = [
     id: '3',
     nom: 'Club Culturel',
     description: 'Théâtre, danse, musique et arts plastiques',
-    couleur: '#A78BFA',
+    couleur: '#F5A623',
     nbMembres: 32,
     isMember: true,
     role: 'Responsable',
@@ -106,32 +77,36 @@ const MOCK_CLUBS: Club[] = [
   },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-const getRoleConfig = (role?: string) => {
+// ─── HELPERS ──────────────────────────────────────────────────────────────
+const getRoleConfig = (role: string | undefined, colors: any) => {
   switch (role) {
     case 'Responsable':
-      return { label: 'Responsable', color: C.amber, bg: C.amberBg, icon: '👑' };
+      return { label: 'Responsable', color: colors.warning, bg: `${colors.warning}15` };
     case 'Encadrant':
-      return { label: 'Encadrant', color: C.blue, bg: C.blueBg, icon: '🎯' };
+      return { label: 'Encadrant', color: colors.info, bg: `${colors.info}15` };
     default:
-      return { label: 'Membre', color: C.purple, bg: C.purpleBg, icon: '👤' };
+      return { label: 'Membre', color: colors.secondary, bg: `${colors.secondary}15` };
   }
 };
 
-// ─── Club Card ──────────────────────────────────────────────────────────────
+// ─── CLUB CARD ──────────────────────────────────────────────────────────────
 const ClubCard = ({
   club,
   onJoin,
   index,
+  colors,
+  isDark,
 }: {
   club: Club;
   onJoin: (club: Club) => void;
   index: number;
+  colors: any;
+  isDark: boolean;
 }) => {
-  const roleConfig = getRoleConfig(club.role);
+  const roleConfig = getRoleConfig(club.role, colors);
   const isMember = club.isMember || false;
+  const shadowColor = isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.06)';
 
-  // Animation
   const translateY = useRef(new Animated.Value(15)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -157,181 +132,181 @@ const ClubCard = ({
       style={{
         opacity: opacity,
         transform: [{ translateY: translateY }],
-        marginBottom: 16,
+        marginBottom: 12,
       }}
     >
-      <Card
-        variant="default"
-        padding="md"
-        glow={isMember}
-        borderGlow={isMember}
+      <View
+        style={{
+          backgroundColor: colors.surface,
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: colors.border,
+          shadowColor: shadowColor,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: isDark ? 0.2 : 0.04,
+          shadowRadius: 8,
+          elevation: isDark ? 2 : 1,
+          padding: 16,
+        }}
       >
-        {/* Bandeau coloré */}
-        <LinearGradient
-          colors={[club.couleur + '80', club.couleur + '20']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 3,
-          }}
-        />
-
-        <View style={{ paddingTop: 4 }}>
-          {/* En-tête */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: club.couleur + '15',
-              }}
-            >
-              <Feather name="users" size={22} color={club.couleur} />
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text
-                  style={{
-                    flex: 1,
-                    fontSize: 16,
-                    fontWeight: '700',
-                    color: C.textPrimary,
-                  }}
-                  numberOfLines={1}
-                >
-                  {club.nom}
-                </Text>
-                {isMember && (
-                  <Badge
-                    text={`${roleConfig.icon} ${roleConfig.label}`}
-                    variant={club.role === 'Responsable' ? 'warning' : 'primary'}
-                    size="sm"
-                  />
-                )}
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                <Feather name="users" size={11} color={C.textMuted} />
-                <Text style={{ fontSize: 12, color: C.textMuted }}>
-                  {club.nbMembres} membres
-                </Text>
-                {club.categories && club.categories.length > 0 && (
-                  <>
-                    <View
-                      style={{
-                        width: 2,
-                        height: 2,
-                        borderRadius: 1,
-                        backgroundColor: C.textMuted,
-                      }}
-                    />
-                    <Text style={{ fontSize: 12, color: C.textMuted }}>
-                      {club.categories.join(' · ')}
-                    </Text>
-                  </>
-                )}
-              </View>
-            </View>
-
-            {isMember && (
-              <View
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 6,
-                  backgroundColor: C.greenBg,
-                  borderWidth: 1,
-                  borderColor: C.green + '20',
-                }}
-              >
-                <Text style={{ fontSize: 8, fontWeight: '600', color: C.green }}>
-                  INSCRIT
-                </Text>
-              </View>
-            )}
+        {/* En-tête */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: club.couleur + '12',
+            }}
+          >
+            <Feather name="users" size={20} color={club.couleur} />
           </View>
 
-          {/* Description */}
-          <Text
-            style={{
-              fontSize: 12,
-              lineHeight: 16,
-              marginBottom: 12,
-              color: C.textSecondary,
-            }}
-            numberOfLines={2}
-          >
-            {club.description}
-          </Text>
-
-          {/* Prochain événement */}
-          {club.prochainEvent && (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                marginBottom: 16,
-                paddingHorizontal: 10,
-                paddingVertical: 10,
-                borderRadius: 12,
-                backgroundColor: C.surfaceAlt,
-                borderWidth: 1,
-                borderColor: C.border,
-              }}
-            >
-              <View
-                style={{
-                  paddingHorizontal: 6,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  backgroundColor: C.accentBg,
-                }}
-              >
-                <Feather name="calendar" size={14} color={C.accentDim} />
-              </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Text
                 style={{
-                  flex: 1,
-                  fontSize: 12,
-                  fontWeight: '500',
-                  color: C.textSecondary,
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: colors.text,
                 }}
+                numberOfLines={1}
               >
-                {club.prochainEvent}
+                {club.nom}
               </Text>
-              <Feather name="chevron-right" size={14} color={C.textMuted} />
+              {isMember && (
+                <View
+                  style={{
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    backgroundColor: roleConfig.bg,
+                  }}
+                >
+                  <Text style={{ fontSize: 8, fontWeight: '600', color: roleConfig.color }}>
+                    {roleConfig.label}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Feather name="users" size={11} color={colors.textMuted} />
+              <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                {club.nbMembres} membres
+              </Text>
+              {club.categories && club.categories.length > 0 && (
+                <>
+                  <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: colors.textMuted }} />
+                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                    {club.categories.join(' · ')}
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+
+          {isMember && (
+            <View
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 6,
+                backgroundColor: colors.success + '12',
+                borderWidth: 1,
+                borderColor: colors.success + '30',
+              }}
+            >
+              <Text style={{ fontSize: 8, fontWeight: '600', color: colors.success }}>
+                Inscrit
+              </Text>
             </View>
           )}
+        </View>
 
-          {/* Bouton d'action */}
+        {/* Description */}
+        <Text
+          style={{
+            fontSize: 13,
+            lineHeight: 18,
+            marginTop: 10,
+            color: colors.textSecondary,
+            paddingLeft: 56,
+          }}
+          numberOfLines={2}
+        >
+          {club.description}
+        </Text>
+
+        {/* Prochain événement */}
+        {club.prochainEvent && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 12,
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              borderRadius: 10,
+              backgroundColor: colors.surfaceElevated,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <View
+              style={{
+                paddingHorizontal: 6,
+                paddingVertical: 6,
+                borderRadius: 6,
+                backgroundColor: colors.primary + '12',
+              }}
+            >
+              <Feather name="calendar" size={12} color={colors.primary} />
+            </View>
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 11,
+                fontWeight: '500',
+                color: colors.textSecondary,
+              }}
+              numberOfLines={1}
+            >
+              {club.prochainEvent}
+            </Text>
+            <Feather name="chevron-right" size={14} color={colors.textMuted} />
+          </View>
+        )}
+
+        {/* Séparateur */}
+        <View
+          style={{
+            marginTop: 12,
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+          }}
+        >
           {isMember ? (
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
-                paddingVertical: 10,
-                borderRadius: 12,
-                backgroundColor: C.surfaceAlt,
-                borderWidth: 1,
-                borderColor: C.border,
+                gap: 6,
+                paddingVertical: 8,
+                borderRadius: 10,
+                backgroundColor: colors.surfaceElevated,
               }}
             >
-              <Feather name="check-circle" size={16} color={C.green} />
-              <Text style={{ fontSize: 14, fontWeight: '500', color: C.green }}>
+              <Feather name="check-circle" size={14} color={colors.success} />
+              <Text style={{ fontSize: 12, fontWeight: '500', color: colors.success }}>
                 Déjà membre
               </Text>
-              <Text style={{ fontSize: 12, color: C.textMuted }}>
+              <Text style={{ fontSize: 11, color: colors.textMuted }}>
                 · {club.role || 'Membre'}
               </Text>
             </View>
@@ -343,150 +318,28 @@ const ClubCard = ({
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                gap: 6,
                 paddingVertical: 10,
-                borderRadius: 12,
-                backgroundColor: C.accent,
+                borderRadius: 10,
+                backgroundColor: colors.primary,
               }}
             >
-              <Feather name="user-plus" size={16} color="#FFFFFF" />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>
+              <Feather name="user-plus" size={15} color="#FFFFFF" />
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>
                 Inscrire mon enfant
               </Text>
             </TouchableOpacity>
           )}
         </View>
-      </Card>
+      </View>
     </Animated.View>
   );
 };
 
-// ─── Header ──────────────────────────────────────────────────────────────────
-const Header = ({ children, count }: { children: string; count: number }) => {
-  const { user } = useAuth();
-  const initials = `${user?.prenoms?.[0] ?? ''}${user?.nom?.[0] ?? ''}`.toUpperCase();
-
-  return (
-    <View
-      style={{
-        backgroundColor: C.surface,
-        paddingTop: 56,
-        paddingBottom: 28,
-        paddingHorizontal: 22,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      {/* Halos décoratifs */}
-      <View
-        style={{
-          position: 'absolute',
-          top: -50,
-          right: -50,
-          width: 200,
-          height: 200,
-          backgroundColor: 'rgba(99,102,241,0.06)',
-          borderRadius: 100,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          bottom: -30,
-          left: -20,
-          width: 140,
-          height: 140,
-          backgroundColor: 'rgba(52,211,153,0.04)',
-          borderRadius: 70,
-        }}
-      />
-
-      {/* Top bar */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 20,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            style={{
-              width: 40,
-              height: 40,
-              backgroundColor: C.surfaceAlt,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: C.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="arrow-left" size={20} color={C.textSecondary} />
-          </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '700',
-              letterSpacing: 2.5,
-              color: C.accent,
-              textTransform: 'uppercase',
-            }}
-          >
-            ✦ SURYA
-          </Text>
-        </View>
-
-        <LinearGradient
-          colors={['#3730A3', '#6366F1']}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 13,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>
-            {initials}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Titre */}
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: '700',
-          color: '#E8EAF0',
-          letterSpacing: -0.3,
-        }}
-      >
-        {children}
-      </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-        <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 0.2 }}>
-          {count} club{count > 1 ? 's' : ''} disponible{count > 1 ? 's' : ''}
-        </Text>
-        {count > 0 && (
-          <View
-            style={{
-              width: 4,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: C.green,
-            }}
-          />
-        )}
-      </View>
-    </View>
-  );
-};
-
-// ─── Screen ──────────────────────────────────────────────────────────────────
+// ─── SCREEN PRINCIPAL ──────────────────────────────────────────────────────
 export const ParentClubsScreen: React.FC = () => {
-  const { user } = useAuth();
+  const { colors, isDark } = useTheme();
+  const navigation = useNavigation<any>();
   const [clubs, setClubs] = useState(MOCK_CLUBS);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -510,7 +363,7 @@ export const ParentClubsScreen: React.FC = () => {
               )
             );
             Alert.alert(
-              'Inscription réussie',
+              '✅ Inscription réussie',
               `Votre enfant a été inscrit au ${club.nom}`,
               [{ text: 'OK' }]
             );
@@ -520,35 +373,89 @@ export const ParentClubsScreen: React.FC = () => {
     );
   };
 
-  if (!user) return <LoadingSpinner fullScreen />;
+  const memberCount = clubs.filter(c => c.isMember).length;
+  const initials = 'JD';
 
   if (clubs.length === 0) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <StatusBar barStyle="light-content" backgroundColor={C.bg} />
-        <Header children="Clubs et activités" count={0} />
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <LinearGradient
+          colors={GRADIENT_BRAND}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            paddingTop: 56,
+            paddingBottom: 24,
+            paddingHorizontal: 22,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+            width: '100%',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => navigation.goBack()}
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 10, marginRight: 12 }}
+              >
+                <Feather name="arrow-left" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>Z</Text>
+                </View>
+                <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.5, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase' }}>
+                  ZENITH
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Profile')}
+              style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 10 }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{initials}</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ fontSize: 22, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3 }}>
+            Clubs
+          </Text>
+          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
+            Aucun club disponible
+          </Text>
+        </LinearGradient>
         <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 20 }}>
-          <EmptyState
-            title="Aucun club disponible"
-            description="Aucun club n'est actuellement disponible"
-            icon="users"
-          />
+          <View style={{ alignItems: 'center', paddingVertical: 50 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary + '12', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Feather name="users" size={24} color={colors.primary} />
+            </View>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 4 }}>
+              Aucun club
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center' }}>
+              Aucun club n'est actuellement disponible
+            </Text>
+          </View>
         </View>
       </View>
     );
   }
 
-  const memberCount = clubs.filter(c => c.isMember).length;
-
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <FlatList
         data={clubs}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
-          <ClubCard club={item} onJoin={handleJoinClub} index={index} />
+          <ClubCard
+            club={item}
+            onJoin={handleJoinClub}
+            index={index}
+            colors={colors}
+            isDark={isDark}
+          />
         )}
         contentContainerStyle={{
           paddingHorizontal: 16,
@@ -556,24 +463,73 @@ export const ParentClubsScreen: React.FC = () => {
         }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         ListHeaderComponent={() => (
-          <Header children="Clubs et activités" count={clubs.length} />
-        )}
-        ListFooterComponent={() => (
-          <View
+          <LinearGradient
+            colors={GRADIENT_BRAND}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              marginTop: 4,
-              paddingVertical: 12,
+              paddingTop: 56,
+              paddingBottom: 24,
+              paddingHorizontal: 22,
+              borderBottomLeftRadius: 28,
+              borderBottomRightRadius: 28,
+              marginBottom: 12,
             }}
           >
-            <Feather name="info" size={12} color={C.textMuted} />
-            <Text style={{ fontSize: 10, color: C.textMuted }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 10, marginRight: 12 }}
+                >
+                  <Feather name="arrow-left" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>Z</Text>
+                  </View>
+                  <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.5, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase' }}>
+                    ZENITH
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Profile')}
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 10 }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>{initials}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 22, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3 }}>
+              Clubs
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+                {clubs.length} club{clubs.length > 1 ? 's' : ''} disponible{clubs.length > 1 ? 's' : ''}
+              </Text>
+              {memberCount > 0 && (
+                <>
+                  <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                  <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+                    {memberCount} rejoint{memberCount > 1 ? 's' : ''}
+                  </Text>
+                </>
+              )}
+            </View>
+          </LinearGradient>
+        )}
+        ListFooterComponent={() => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 }}>
+            <Feather name="info" size={12} color={colors.textMuted} />
+            <Text style={{ fontSize: 10, color: colors.textMuted }}>
               {memberCount} club{memberCount > 1 ? 's' : ''} rejoint{memberCount > 1 ? 's' : ''}
               {memberCount > 0 && ` · ${clubs.length - memberCount} disponible${clubs.length - memberCount > 1 ? 's' : ''}`}
             </Text>

@@ -57,6 +57,7 @@ export const SettingsScreen: React.FC = () => {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View>
             <Text style={{
+              
               fontSize: 12,
               fontWeight: '700',
               color: 'rgba(255,255,255,0.5)',

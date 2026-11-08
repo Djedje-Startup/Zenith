@@ -1,47 +1,22 @@
 // screens/eleve/StudentTimetableScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  StatusBar,
-  Animated,
-} from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, StatusBar, Animated, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedViewNative from '@react-native-masked-view/masked-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
+// ─── IDENTITÉ ZENIT ──────────────────────────────────────────────────────
+const BRAND_ORANGE = '#F97316';
+const BRAND_VIOLET = '#8B5CF6';
+const GRADIENT_BRAND: [string, string] = [BRAND_ORANGE, BRAND_VIOLET];
+const MaskedView = MaskedViewNative as unknown as React.ComponentType<any>;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type FeatherIconName = keyof typeof Feather.glyphMap;
+
+// ─── TYPES & MOCK ────────────────────────────────────────────────────────
 interface TimetableEntry {
   id: string;
   heureDebut: string;
@@ -52,497 +27,232 @@ interface TimetableEntry {
   type?: 'CM' | 'TD' | 'TP' | 'DS';
 }
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
+const e = (id: string, d: string, f: string, matiere: string, professeur: string, salle: string, type: TimetableEntry['type']): TimetableEntry =>
+  ({ id, heureDebut: d, heureFin: f, matiere, professeur, salle, type });
+
 const MOCK_TIMETABLE: Record<string, TimetableEntry[]> = {
   Lundi: [
-    { id: '1', heureDebut: '08:00', heureFin: '09:30', matiere: 'Mathématiques', professeur: 'M. NGOMA', salle: 'A101', type: 'CM' },
-    { id: '2', heureDebut: '10:00', heureFin: '11:30', matiere: 'Français', professeur: 'Mme LOUBAKI', salle: 'A102', type: 'TD' },
-    { id: '3', heureDebut: '14:00', heureFin: '15:30', matiere: 'Physique-Chimie', professeur: 'M. MFOUMOU', salle: 'Labo Sciences', type: 'TP' },
+    e('1', '08:00', '09:30', 'Mathématiques', 'M. NGOMA', 'A101', 'CM'),
+    e('2', '10:00', '11:30', 'Français', 'Mme LOUBAKI', 'A102', 'TD'),
+    e('3', '14:00', '15:30', 'Physique-Chimie', 'M. MFOUMOU', 'Labo Sciences', 'TP'),
   ],
   Mardi: [
-    { id: '4', heureDebut: '08:00', heureFin: '09:30', matiere: 'Physique-Chimie', professeur: 'M. MFOUMOU', salle: 'Labo Sciences', type: 'TP' },
-    { id: '5', heureDebut: '10:00', heureFin: '11:30', matiere: 'Anglais', professeur: 'M. WAMBA', salle: 'Labo Langues', type: 'TD' },
+    e('4', '08:00', '09:30', 'Physique-Chimie', 'M. MFOUMOU', 'Labo Sciences', 'TP'),
+    e('5', '10:00', '11:30', 'Anglais', 'M. WAMBA', 'Labo Langues', 'TD'),
   ],
-  Mercredi: [
-    { id: '6', heureDebut: '09:00', heureFin: '12:00', matiere: 'Mathématiques', professeur: 'M. NGOMA', salle: 'A101', type: 'DS' },
-  ],
+  Mercredi: [e('6', '09:00', '12:00', 'Mathématiques', 'M. NGOMA', 'A101', 'DS')],
   Jeudi: [
-    { id: '7', heureDebut: '08:00', heureFin: '09:30', matiere: 'Anglais', professeur: 'M. WAMBA', salle: 'Labo Langues', type: 'TD' },
-    { id: '8', heureDebut: '14:00', heureFin: '15:30', matiere: 'Histoire-Géo', professeur: 'Mme MOUKALA', salle: 'A103', type: 'CM' },
+    e('7', '08:00', '09:30', 'Anglais', 'M. WAMBA', 'Labo Langues', 'TD'),
+    e('8', '14:00', '15:30', 'Histoire-Géo', 'Mme MOUKALA', 'A103', 'CM'),
   ],
-  Vendredi: [
-    { id: '9', heureDebut: '08:00', heureFin: '09:30', matiere: 'Histoire-Géo', professeur: 'Mme MOUKALA', salle: 'A103', type: 'CM' },
-  ],
+  Vendredi: [e('9', '08:00', '09:30', 'Histoire-Géo', 'Mme MOUKALA', 'A103', 'CM')],
   Samedi: [],
+  Dimanche: [],
 };
 
-const joursSemaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const getTypeConfig = (type?: string) => {
-  switch (type) {
-    case 'CM':
-      return { label: 'Cours Magistral', color: C.blue, bg: C.blueBg };
-    case 'TD':
-      return { label: 'Travaux Dirigés', color: C.teal, bg: C.tealBg };
-    case 'TP':
-      return { label: 'Travaux Pratiques', color: C.purple, bg: C.purpleBg };
-    case 'DS':
-      return { label: 'Devoir Surveillé', color: C.red, bg: C.redBg };
-    default:
-      return { label: 'Cours', color: C.textMuted, bg: C.surfaceAlt };
-  }
+const TYPE_META: Record<string, { label: string; icon: FeatherIconName }> = {
+  CM: { label: 'Cours magistral', icon: 'book-open' },
+  TD: { label: 'Travaux dirigés', icon: 'edit-3' },
+  TP: { label: 'Travaux pratiques', icon: 'cpu' },
+  DS: { label: 'Devoir surveillé', icon: 'file-text' },
 };
 
-// ─── Composants ──────────────────────────────────────────────────────────────
-const SectionTitle = ({ children, count }: { children: string; count?: number }) => (
-  <View style={{
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  }}>
-    <Text style={{
-      fontSize: 11,
-      fontWeight: '700',
-      color: C.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 1.2,
-    }}>
-      {children}
-    </Text>
-    {count !== undefined && (
-      <Text style={{
-        fontSize: 11,
-        color: C.textMuted,
-      }}>
-        {count} cours
-      </Text>
-    )}
-  </View>
+// ─── DATES ────────────────────────────────────────────────────────────────
+const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const startOfWeek = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return addDays(x, -((x.getDay() + 6) % 7)); };
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+const coursOf = (d: Date) => MOCK_TIMETABLE[JOURS[d.getDay()]] || [];
+const isNow = (c: TimetableEntry) => {
+  const n = new Date();
+  const t = `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`;
+  return c.heureDebut <= t && t <= c.heureFin;
+};
+
+// ─── BRIQUES ──────────────────────────────────────────────────────────────
+const GradientIcon = ({ name, size }: { name: FeatherIconName; size: number }) => (
+  <MaskedView
+    style={{ width: size, height: size }}
+    maskElement={<View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}><Feather name={name} size={size} color="#000" /></View>}
+  >
+    <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size }} />
+  </MaskedView>
 );
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+const FadeIn = ({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) => {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(v, { toValue: 1, duration: 380, delay, useNativeDriver: true }).start(); }, []);
+  return <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>{children}</Animated.View>;
+};
+
+// ─── ÉCRAN ────────────────────────────────────────────────────────────────
 export const StudentTimetableScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const [selected, setSelected] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(joursSemaine[0]);
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+  const today = new Date();
+  const week = useMemo(() => { const ws = startOfWeek(selected); return Array.from({ length: 7 }, (_, i) => addDays(ws, i)); }, [selected]);
+  const cours = coursOf(selected);
+  const viewingToday = sameDay(selected, today);
 
-  const currentCours = MOCK_TIMETABLE[selectedDay] || [];
-  const hasData = currentCours.length > 0;
-
-  const totalHeures = currentCours.reduce((acc, cours) => {
-    const debut = parseInt(cours.heureDebut.split(':')[0]);
-    const fin = parseInt(cours.heureFin.split(':')[0]);
-    return acc + (fin - debut);
-  }, 0);
-
-  // Animations pour les cours
-  const courseAnimations = currentCours.map(() => ({
-    translateX: useRef(new Animated.Value(-10)).current,
-    opacity: useRef(new Animated.Value(0)).current,
-  }));
-
-  useEffect(() => {
-    courseAnimations.forEach((anim, index) => {
-      Animated.parallel([
-        Animated.spring(anim.translateX, {
-          toValue: 0,
-          damping: 25,
-          delay: 150 + index * 40,
-          useNativeDriver: true,
-        }),
-        Animated.timing(anim.opacity, {
-          toValue: 1,
-          duration: 300,
-          delay: 150 + index * 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    });
-  }, [selectedDay]);
+  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); };
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+      <LinearGradient
+        pointerEvents="none"
+        colors={[`${BRAND_VIOLET}33`, `${BRAND_ORANGE}1A`, 'transparent']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={[StyleSheet.absoluteFill, { height: 340 }]}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
-        }
+        contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* ───── Header Premium ──────────────────────────────────────────────── */}
-        <LinearGradient
-          colors={['#1E1B4B', '#312E81', '#4F46E5']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            paddingTop: 56,
-            paddingBottom: 24,
-            paddingHorizontal: 22,
-            borderBottomLeftRadius: 28,
-            borderBottomRightRadius: 28,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={styles.topBar}>
+          <TouchableOpacity activeOpacity={0.75} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Retour" style={[styles.backBtn, { backgroundColor: colors.surfaceElevated }]}>
+            <Feather name="arrow-left" size={18} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.screenTitle, { color: colors.text }]}>Mon emploi du temps</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        {/* ───── CALENDRIER SEMAINE ───── */}
+        <View style={[styles.calendar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.monthRow}>
             <View>
-              <Text style={{
-                fontSize: 12,
-                fontWeight: '700',
-                color: 'rgba(255,255,255,0.5)',
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
-              }}>
-                Élève
-              </Text>
-              <Text style={{
-                fontSize: 24,
-                fontWeight: '700',
-                color: '#FFFFFF',
-                marginTop: 2,
-                letterSpacing: -0.5,
-              }}>
-                Mon emploi du temps
-              </Text>
+              <Text style={[styles.month, { color: colors.text }]}>{MOIS[selected.getMonth()]} {selected.getFullYear()}</Text>
+              <Text style={[styles.monthSub, { color: colors.textMuted }]}>{JOURS[selected.getDay()]} {selected.getDate()}</Text>
             </View>
-            <View style={{
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-              alignItems: 'center',
-            }}>
-              <Text style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.6)',
-                fontWeight: '500',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Semaine
-              </Text>
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '700',
-                color: '#FFFFFF',
-              }}>
-                S-42
-              </Text>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity onPress={() => setSelected(addDays(selected, -7))} accessibilityRole="button" accessibilityLabel="Semaine précédente" style={styles.chevBtn}>
+                <Feather name="chevron-left" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSelected(addDays(selected, 7))} accessibilityRole="button" accessibilityLabel="Semaine suivante" style={styles.chevBtn}>
+                <Feather name="chevron-right" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* Stats du jour */}
-          {hasData && (
-            <View style={{
-              flexDirection: 'row',
-              marginTop: 16,
-            }}>
-              {[
-                { label: 'Cours', value: currentCours.length.toString(), icon: 'book-open' },
-                { label: 'Heures', value: totalHeures.toString(), icon: 'clock' },
-              ].map((stat, index) => (
-                <View key={stat.label} style={{
-                  flex: 1,
-                  backgroundColor: 'rgba(255,255,255,0.06)',
-                  borderRadius: 12,
-                  paddingVertical: 10,
-                  paddingHorizontal: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  marginRight: index === 0 ? 10 : 0,
-                }}>
-                  <View style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 10,
-                  }}>
-                    <Feather name={stat.icon as any} size={14} color="rgba(255,255,255,0.6)" />
-                  </View>
-                  <View>
-                    <Text style={{
-                      fontSize: 9,
-                      color: 'rgba(255,255,255,0.4)',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                    }}>
-                      {stat.label}
-                    </Text>
-                    <Text style={{
-                      fontSize: 14,
-                      fontWeight: '700',
-                      color: '#FFFFFF',
-                    }}>
-                      {stat.value}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </LinearGradient>
-
-        {/* ─── Sélecteur de jour ────────────────────────────────────────────── */}
-        <View style={{
-          backgroundColor: C.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: C.border,
-          paddingVertical: 12,
-        }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 18, gap: 8 }}
-          >
-            {joursSemaine.map((jour) => {
-              const isActive = selectedDay === jour;
-              const hasCours = MOCK_TIMETABLE[jour]?.length > 0;
-
+          <View style={styles.weekRow}>
+            {week.map((d, i) => {
+              const active = sameDay(d, selected);
+              const isToday = sameDay(d, today);
+              const has = coursOf(d).length > 0;
               return (
-                <TouchableOpacity
-                  key={jour}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedDay(jour)}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    borderRadius: 14,
-                    backgroundColor: isActive ? C.accent : C.surfaceAlt,
-                    borderWidth: 1,
-                    borderColor: isActive ? C.accent : C.border,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 13,
-                    fontWeight: isActive ? '700' : '600',
-                    color: isActive ? '#FFFFFF' : C.textSecondary,
-                  }}>
-                    {jour}
-                  </Text>
-                  {hasCours && (
-                    <View style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: isActive ? 'rgba(255,255,255,0.5)' : C.accent,
-                      marginLeft: 6,
-                    }} />
+                <TouchableOpacity key={i} activeOpacity={0.7} onPress={() => setSelected(d)} accessibilityRole="button" style={styles.dayCol}>
+                  <Text style={[styles.dayName, { color: colors.textMuted }]}>{JOURS_COURTS[i]}</Text>
+                  {active ? (
+                    <LinearGradient colors={GRADIENT_BRAND} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dayCircle}>
+                      <Text style={[styles.dayNum, { color: '#FFFFFF', fontWeight: '700' }]}>{d.getDate()}</Text>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.dayCircle}>
+                      <Text style={[styles.dayNum, { color: isToday ? BRAND_VIOLET : colors.text, fontWeight: isToday ? '700' : '500' }]}>{d.getDate()}</Text>
+                    </View>
                   )}
+                  <View style={[styles.dot, { backgroundColor: has ? (active ? BRAND_VIOLET : colors.textMuted) : 'transparent' }]} />
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
 
-        {/* ─── Cours du jour ────────────────────────────────────────────────── */}
-        <View style={{ paddingHorizontal: 18, paddingTop: 20, paddingBottom: 40 }}>
-          {hasData ? (
-            <>
-              <SectionTitle count={currentCours.length}>
-                {selectedDay}
-              </SectionTitle>
-
-              {currentCours.map((cours, index) => {
-                const typeConfig = getTypeConfig(cours.type);
-                const isCurrent = (() => {
-                  const now = new Date();
-                  const heureActuelle = now.getHours().toString().padStart(2, '0');
-                  const minuteActuelle = now.getMinutes().toString().padStart(2, '0');
-                  const maintenant = `${heureActuelle}:${minuteActuelle}`;
-                  return cours.heureDebut <= maintenant && maintenant <= cours.heureFin;
-                })();
-                const anim = courseAnimations[index] || courseAnimations[0];
-
-                return (
-                  <Animated.View
-                    key={cours.id}
-                    style={{
-                      marginBottom: 10,
-                      transform: [{ translateX: anim.translateX }],
-                      opacity: anim.opacity,
-                    }}
-                  >
-                    <View style={{
-                      backgroundColor: isCurrent ? `${C.accent}15` : C.surface,
-                      borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: isCurrent ? C.accent : C.border,
-                      padding: 16,
-                    }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <View style={{ flex: 1 }}>
-                          {/* En-tête du cours */}
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <View style={{
-                              width: 4,
-                              height: 32,
-                              borderRadius: 2,
-                              backgroundColor: typeConfig.color,
-                              marginRight: 10,
-                            }} />
-                            <View>
-                              <Text style={{
-                                fontSize: 17,
-                                fontWeight: '700',
-                                color: C.textPrimary,
-                                letterSpacing: -0.3,
-                              }}>
-                                {cours.matiere}
-                              </Text>
-                              <Text style={{
-                                fontSize: 12,
-                                color: C.textSecondary,
-                                marginTop: 1,
-                              }}>
-                                {cours.professeur}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Infos horaires et salle */}
-                          <View style={{
-                            flexDirection: 'row',
-                            flexWrap: 'wrap',
-                            marginTop: 12,
-                            paddingTop: 12,
-                            borderTopWidth: 1,
-                            borderTopColor: C.border,
-                          }}>
-                            <View style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              marginRight: 16,
-                            }}>
-                              <Feather name="clock" size={14} color={C.textMuted} />
-                              <Text style={{
-                                fontSize: 12,
-                                color: C.textMuted,
-                                marginLeft: 6,
-                              }}>
-                                {cours.heureDebut} - {cours.heureFin}
-                              </Text>
-                            </View>
-                            <View style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                            }}>
-                              <Feather name="map-pin" size={14} color={C.textMuted} />
-                              <Text style={{
-                                fontSize: 12,
-                                color: C.textMuted,
-                                marginLeft: 6,
-                              }}>
-                                Salle {cours.salle}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        {/* Badge type */}
-                        <View style={{
-                          backgroundColor: typeConfig.bg,
-                          borderRadius: 8,
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          borderWidth: 1,
-                          borderColor: typeConfig.color + '30',
-                          marginLeft: 10,
-                          alignSelf: 'flex-start',
-                        }}>
-                          <Text style={{
-                            fontSize: 9,
-                            fontWeight: '700',
-                            color: typeConfig.color,
-                            letterSpacing: 0.5,
-                          }}>
-                            {cours.type || 'Cours'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Indicateur "En cours" */}
-                      {isCurrent && (
-                        <View style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          marginTop: 10,
-                          paddingTop: 10,
-                          borderTopWidth: 1,
-                          borderTopColor: C.border,
-                        }}>
-                          <View style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: 3,
-                            backgroundColor: C.green,
-                            marginRight: 8,
-                          }} />
-                          <Text style={{
-                            fontSize: 10,
-                            fontWeight: '600',
-                            color: C.green,
-                            textTransform: 'uppercase',
-                            letterSpacing: 0.5,
-                          }}>
-                            En cours
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </Animated.View>
-                );
-              })}
-            </>
-          ) : (
-            // ─── État vide ──────────────────────────────────────────────────────
-            <View style={{
-              backgroundColor: C.surface,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: C.border,
-              padding: 40,
-              alignItems: 'center',
-            }}>
-              <View style={{
-                width: 80,
-                height: 80,
-                borderRadius: 24,
-                backgroundColor: C.accentBg,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 16,
-              }}>
-                <Feather name="calendar" size={36} color={C.accentDim} />
-              </View>
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '700',
-                color: C.textPrimary,
-              }}>
-                Aucun cours
-              </Text>
-              <Text style={{
-                fontSize: 13,
-                color: C.textMuted,
-                textAlign: 'center',
-                marginTop: 4,
-              }}>
-                Aucun cours n'est planifié pour ce jour
-              </Text>
+        {/* ───── COURS DU JOUR ───── */}
+        <View key={selected.toDateString()} style={{ paddingHorizontal: 22 }}>
+          <FadeIn>
+            <View style={styles.sectionRow}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Cours du jour</Text>
+              <Text style={[styles.sectionCount, { color: colors.textMuted }]}>{cours.length > 0 ? `${cours.length} cours` : ''}</Text>
             </View>
+          </FadeIn>
+
+          {cours.length > 0 ? (
+            cours.map((c, i) => {
+              const meta = TYPE_META[c.type || 'CM'];
+              const now = viewingToday && isNow(c);
+              return (
+                <FadeIn key={c.id} delay={60 + i * 70}>
+                  <View style={[styles.item, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+                    <View style={[styles.iconCircle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                      <GradientIcon name={meta.icon} size={18} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <Text style={[styles.itemLabel, { color: colors.textMuted }]}>{meta.label}</Text>
+                        {now && (
+                          <>
+                            <View style={[styles.liveDot, { backgroundColor: BRAND_VIOLET }]} />
+                            <Text style={[styles.itemLabel, { color: BRAND_VIOLET, fontWeight: '600' }]}>En cours</Text>
+                          </>
+                        )}
+                      </View>
+                      <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{c.matiere}</Text>
+                      <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                        {c.heureDebut} – {c.heureFin}  ·  {c.salle}  ·  {c.professeur}
+                      </Text>
+                    </View>
+                  </View>
+                </FadeIn>
+              );
+            })
+          ) : (
+            <FadeIn delay={80}>
+              <View style={styles.empty}>
+                <GradientIcon name="calendar" size={30} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>Aucun cours</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Rien de planifié pour cette journée</Text>
+              </View>
+            </FadeIn>
           )}
         </View>
       </ScrollView>
     </View>
   );
 };
+
+// ─── STYLES ──────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 18 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  screenTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+
+  calendar: { marginHorizontal: 16, borderRadius: 28, borderWidth: StyleSheet.hairlineWidth, paddingTop: 20, paddingBottom: 14, paddingHorizontal: 12 },
+  monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, marginBottom: 18 },
+  month: { fontSize: 20, fontWeight: '600', letterSpacing: -0.4 },
+  monthSub: { fontSize: 12.5, marginTop: 3 },
+  chevBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+
+  weekRow: { flexDirection: 'row' },
+  dayCol: { flex: 1, alignItems: 'center' },
+  dayName: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
+  dayCircle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  dayNum: { fontSize: 15 },
+  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 6 },
+
+  sectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 30, marginBottom: 6 },
+  sectionTitle: { fontSize: 19, fontWeight: '600', letterSpacing: -0.4 },
+  sectionCount: { fontSize: 12.5 },
+
+  item: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
+  iconCircle: { width: 44, height: 44, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  itemLabel: { fontSize: 11.5 },
+  liveDot: { width: 5, height: 5, borderRadius: 2.5 },
+  itemTitle: { fontSize: 16, fontWeight: '600', letterSpacing: -0.2 },
+  itemMeta: { fontSize: 12.5, marginTop: 3 },
+
+  empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', marginTop: 6 },
+  emptyText: { fontSize: 12.5 },
+});

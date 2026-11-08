@@ -10,37 +10,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Cours {
   id: string;
   heureDebut: string;
@@ -51,7 +26,9 @@ interface Cours {
   type?: 'CM' | 'TD' | 'TP' | 'DS';
 }
 
-// ─── Données Mock ────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_TIMETABLE: Record<string, Cours[]> = {
   Lundi: [
     { id: '1', heureDebut: '08:00', heureFin: '09:30', matiere: 'Mathématiques', classe: '3ème A', salle: 'A101', type: 'CM' },
@@ -77,23 +54,12 @@ const MOCK_TIMETABLE: Record<string, Cours[]> = {
 
 const joursSemaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
-const getTypeConfig = (type?: string) => {
-  switch (type) {
-    case 'CM':
-      return { label: 'Cours Magistral', color: C.blue, bg: C.blueBg };
-    case 'TD':
-      return { label: 'Travaux Dirigés', color: C.teal, bg: C.tealBg };
-    case 'TP':
-      return { label: 'Travaux Pratiques', color: C.purple, bg: C.purpleBg };
-    case 'DS':
-      return { label: 'Devoir Surveillé', color: C.red, bg: C.redBg };
-    default:
-      return { label: type || 'Cours', color: C.textMuted, bg: 'transparent' };
-  }
-};
-
-// ─── Composant principal ──────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const TeacherTimetableScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDay, setSelectedDay] = useState(joursSemaine[0]);
 
@@ -102,10 +68,13 @@ export const TeacherTimetableScreen: React.FC = () => {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  const goBack = () => {
+    navigation.goBack();
+  };
+
   const currentCours = MOCK_TIMETABLE[selectedDay] || [];
   const hasData = currentCours.length > 0;
 
-  // Statistiques de la journée
   const totalHeures = currentCours.reduce((acc, cours) => {
     const debut = parseInt(cours.heureDebut.split(':')[0]);
     const fin = parseInt(cours.heureFin.split(':')[0]);
@@ -114,13 +83,25 @@ export const TeacherTimetableScreen: React.FC = () => {
 
   const matieresUniques = new Set(currentCours.map(c => c.matiere)).size;
 
-  return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+  // ─── Configuration des types de cours ───
+  const getTypeConfig = (type?: string) => {
+    const configs: Record<string, { label: string; color: string; bg: string }> = {
+      CM: { label: 'Cours Magistral', color: colors.info, bg: colors.info + '15' },
+      TD: { label: 'Travaux Dirigés', color: colors.secondary, bg: colors.secondaryBg },
+      TP: { label: 'Travaux Pratiques', color: colors.primary, bg: colors.primaryBg },
+      DS: { label: 'Devoir Surveillé', color: colors.error, bg: colors.error + '15' },
+    };
+    return configs[type || ''] || { label: type || 'Cours', color: colors.textMuted, bg: 'transparent' };
+  };
 
-      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
+  // ─── RENDU ───
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+      {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
       <LinearGradient
-        colors={['#1E1B4B', '#312E81', '#4F46E5']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -131,12 +112,36 @@ export const TeacherTimetableScreen: React.FC = () => {
           borderBottomRightRadius: 28,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
           <View>
+            {/* Bouton retour */}
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={goBack}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 6,
+              }}
+            >
+              <Feather name="arrow-left" size={18} color="rgba(255,255,255,0.6)" />
+              <Text style={{
+                fontSize: 12,
+                color: 'rgba(255,255,255,0.6)',
+                fontWeight: '500',
+              }}>
+                Retour
+              </Text>
+            </TouchableOpacity>
             <Text style={{
               fontSize: 12,
               fontWeight: '700',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
@@ -153,7 +158,7 @@ export const TeacherTimetableScreen: React.FC = () => {
             </Text>
           </View>
           <View style={{
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.15)',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -192,7 +197,7 @@ export const TeacherTimetableScreen: React.FC = () => {
             ].map((stat) => (
               <View key={stat.label} style={{
                 flex: 1,
-                backgroundColor: 'rgba(255,255,255,0.06)',
+                backgroundColor: 'rgba(255,255,255,0.12)',
                 borderRadius: 12,
                 paddingVertical: 8,
                 paddingHorizontal: 12,
@@ -200,7 +205,7 @@ export const TeacherTimetableScreen: React.FC = () => {
                 alignItems: 'center',
                 gap: 8,
               }}>
-                <Feather name={stat.icon as any} size={14} color="rgba(255,255,255,0.5)" />
+                <Feather name={stat.icon as any} size={14} color="rgba(255,255,255,0.8)" />
                 <View>
                   <Text style={{
                     fontSize: 14,
@@ -211,7 +216,7 @@ export const TeacherTimetableScreen: React.FC = () => {
                   </Text>
                   <Text style={{
                     fontSize: 8,
-                    color: 'rgba(255,255,255,0.4)',
+                    color: 'rgba(255,255,255,0.5)',
                     textTransform: 'uppercase',
                     letterSpacing: 0.5,
                   }}>
@@ -224,11 +229,11 @@ export const TeacherTimetableScreen: React.FC = () => {
         )}
       </LinearGradient>
 
-      {/* ─── Sélecteur de jour ────────────────────────────────────────────────── */}
+      {/* ─── SÉLECTEUR DE JOUR ─── */}
       <View style={{
-        backgroundColor: C.surface,
+        backgroundColor: colors.surface,
         borderBottomWidth: 1,
-        borderBottomColor: C.border,
+        borderBottomColor: colors.border,
         paddingVertical: 12,
       }}>
         <ScrollView
@@ -249,9 +254,9 @@ export const TeacherTimetableScreen: React.FC = () => {
                   paddingHorizontal: 18,
                   paddingVertical: 10,
                   borderRadius: 14,
-                  backgroundColor: isActive ? C.accent : C.surfaceAlt,
+                  backgroundColor: isActive ? colors.primary : colors.surfaceElevated,
                   borderWidth: 1,
-                  borderColor: isActive ? C.accent : C.border,
+                  borderColor: isActive ? colors.primary : colors.border,
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: 8,
@@ -260,7 +265,7 @@ export const TeacherTimetableScreen: React.FC = () => {
                 <Text style={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: isActive ? '#FFFFFF' : C.textSecondary,
+                  color: isActive ? '#FFFFFF' : colors.textSecondary,
                 }}>
                   {jour}
                 </Text>
@@ -269,7 +274,7 @@ export const TeacherTimetableScreen: React.FC = () => {
                     width: 6,
                     height: 6,
                     borderRadius: 3,
-                    backgroundColor: isActive ? 'rgba(255,255,255,0.5)' : C.accent,
+                    backgroundColor: isActive ? 'rgba(255,255,255,0.5)' : colors.primary,
                   }} />
                 )}
               </TouchableOpacity>
@@ -278,11 +283,15 @@ export const TeacherTimetableScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* ─── Liste des cours ──────────────────────────────────────────────────── */}
+      {/* ─── LISTE DES COURS ─── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
       >
@@ -298,7 +307,7 @@ export const TeacherTimetableScreen: React.FC = () => {
               <Text style={{
                 fontSize: 11,
                 fontWeight: '700',
-                color: C.textMuted,
+                color: colors.textMuted,
                 textTransform: 'uppercase',
                 letterSpacing: 1.2,
               }}>
@@ -306,7 +315,7 @@ export const TeacherTimetableScreen: React.FC = () => {
               </Text>
               <Text style={{
                 fontSize: 11,
-                color: C.textMuted,
+                color: colors.textMuted,
               }}>
                 {totalHeures}h de cours
               </Text>
@@ -326,18 +335,26 @@ export const TeacherTimetableScreen: React.FC = () => {
                 <View
                   key={cours.id}
                   style={{
-                    backgroundColor: isCurrent ? `${C.accent}15` : C.surface,
+                    backgroundColor: isCurrent ? colors.primaryBg : colors.surface,
                     borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: isCurrent ? C.accent : C.border,
+                    borderColor: isCurrent ? colors.primary : colors.border,
                     marginBottom: 12,
                     padding: 16,
                   }}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}>
                     <View style={{ flex: 1 }}>
                       {/* En-tête du cours */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}>
                         <View style={{
                           width: 4,
                           height: 32,
@@ -348,14 +365,14 @@ export const TeacherTimetableScreen: React.FC = () => {
                           <Text style={{
                             fontSize: 17,
                             fontWeight: '700',
-                            color: C.textPrimary,
+                            color: colors.text,
                             letterSpacing: -0.3,
                           }}>
                             {cours.matiere}
                           </Text>
                           <Text style={{
                             fontSize: 13,
-                            color: C.textSecondary,
+                            color: colors.textSecondary,
                             marginTop: 1,
                           }}>
                             {cours.classe}
@@ -371,22 +388,30 @@ export const TeacherTimetableScreen: React.FC = () => {
                         marginTop: 12,
                         paddingTop: 12,
                         borderTopWidth: 1,
-                        borderTopColor: C.border,
+                        borderTopColor: colors.border,
                       }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Feather name="clock" size={14} color={C.textMuted} />
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}>
+                          <Feather name="clock" size={14} color={colors.textMuted} />
                           <Text style={{
                             fontSize: 12,
-                            color: C.textMuted,
+                            color: colors.textMuted,
                           }}>
                             {cours.heureDebut} - {cours.heureFin}
                           </Text>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Feather name="map-pin" size={14} color={C.textMuted} />
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}>
+                          <Feather name="map-pin" size={14} color={colors.textMuted} />
                           <Text style={{
                             fontSize: 12,
-                            color: C.textMuted,
+                            color: colors.textMuted,
                           }}>
                             Salle {cours.salle}
                           </Text>
@@ -396,7 +421,7 @@ export const TeacherTimetableScreen: React.FC = () => {
                             flexDirection: 'row',
                             alignItems: 'center',
                             gap: 4,
-                            backgroundColor: C.greenBg,
+                            backgroundColor: colors.success + '15',
                             paddingHorizontal: 8,
                             paddingVertical: 2,
                             borderRadius: 6,
@@ -405,12 +430,12 @@ export const TeacherTimetableScreen: React.FC = () => {
                               width: 6,
                               height: 6,
                               borderRadius: 3,
-                              backgroundColor: C.green,
+                              backgroundColor: colors.success,
                             }} />
                             <Text style={{
                               fontSize: 9,
                               fontWeight: '700',
-                              color: C.green,
+                              color: colors.success,
                               textTransform: 'uppercase',
                               letterSpacing: 0.5,
                             }}>
@@ -447,12 +472,12 @@ export const TeacherTimetableScreen: React.FC = () => {
             })}
           </>
         ) : (
-          // ─── État vide ──────────────────────────────────────────────────────────
+          // ─── ÉTAT VIDE ───
           <View style={{
-            backgroundColor: C.surface,
+            backgroundColor: colors.surface,
             borderRadius: 20,
             borderWidth: 1,
-            borderColor: C.border,
+            borderColor: colors.border,
             padding: 40,
             alignItems: 'center',
           }}>
@@ -460,23 +485,23 @@ export const TeacherTimetableScreen: React.FC = () => {
               width: 80,
               height: 80,
               borderRadius: 24,
-              backgroundColor: C.accentBg,
+              backgroundColor: colors.primaryBg,
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 16,
             }}>
-              <Feather name="calendar" size={36} color={C.accentDim} />
+              <Feather name="calendar" size={36} color={colors.primary} />
             </View>
             <Text style={{
               fontSize: 18,
               fontWeight: '700',
-              color: C.textPrimary,
+              color: colors.text,
             }}>
               Aucun cours
             </Text>
             <Text style={{
               fontSize: 13,
-              color: C.textMuted,
+              color: colors.textMuted,
               textAlign: 'center',
               marginTop: 4,
             }}>
@@ -486,18 +511,18 @@ export const TeacherTimetableScreen: React.FC = () => {
               activeOpacity={0.7}
               style={{
                 marginTop: 16,
-                backgroundColor: C.accentBg,
+                backgroundColor: colors.primaryBg,
                 borderRadius: 12,
                 paddingHorizontal: 20,
                 paddingVertical: 10,
                 borderWidth: 1,
-                borderColor: `${C.accent}30`,
+                borderColor: `${colors.primary}30`,
               }}
             >
               <Text style={{
                 fontSize: 13,
                 fontWeight: '600',
-                color: C.accentDim,
+                color: colors.primary,
               }}>
                 Voir planning complet
               </Text>

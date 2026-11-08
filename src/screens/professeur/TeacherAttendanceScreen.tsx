@@ -11,37 +11,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../../theme';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-  white: '#FFFFFF',
-};
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────
 interface Eleve {
   id: string;
   nom: string;
@@ -50,7 +25,9 @@ interface Eleve {
   justifie?: boolean;
 }
 
-// ─── Données Mock ────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// MOCK DATA
+// ──────────────────────────────────────────────────────────────
 const MOCK_ELEVES: Eleve[] = [
   { id: '1', nom: 'MOUKOKO', prenoms: 'Jean Junior', present: true },
   { id: '2', nom: 'NGOMA', prenoms: 'Paul', present: true },
@@ -61,8 +38,12 @@ const MOCK_ELEVES: Eleve[] = [
   { id: '7', nom: 'MBOULA', prenoms: 'Sandrine', present: false, justifie: false },
 ];
 
-// ─── Composant principal ──────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// COMPOSANT PRINCIPAL
+// ──────────────────────────────────────────────────────────────
 export const TeacherAttendanceScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [eleves, setEleves] = useState(MOCK_ELEVES);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,6 +52,10 @@ export const TeacherAttendanceScreen: React.FC = () => {
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const goBack = () => {
+    navigation.goBack();
   };
 
   const togglePresence = (id: string) => {
@@ -89,7 +74,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
-      Alert.alert('✅ Succès', 'L\'appel a été enregistré avec succès');
+      Alert.alert('✅ Succès', "L'appel a été enregistré avec succès");
     }, 1000);
   };
 
@@ -107,13 +92,14 @@ export const TeacherAttendanceScreen: React.FC = () => {
     return true;
   });
 
+  // ─── RENDU ───
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
 
-      {/* ─── Header Premium ──────────────────────────────────────────────────── */}
+      {/* ─── HEADER AVEC DÉGRADÉ ZENITH ─── */}
       <LinearGradient
-        colors={['#064E3B', '#065F46', '#0D9488']}
+        colors={[colors.primary, colors.secondary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{
@@ -124,12 +110,36 @@ export const TeacherAttendanceScreen: React.FC = () => {
           borderBottomRightRadius: 28,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
           <View>
+            {/* Bouton retour */}
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={goBack}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <Feather name="arrow-left" size={18} color="rgba(255,255,255,0.6)" />
+              <Text style={{
+                fontSize: 12,
+                color: 'rgba(255,255,255,0.6)',
+                fontWeight: '500',
+              }}>
+                Retour
+              </Text>
+            </TouchableOpacity>
             <Text style={{
               fontSize: 12,
               fontWeight: '700',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.6)',
               letterSpacing: 1.5,
               textTransform: 'uppercase',
             }}>
@@ -153,7 +163,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
             </Text>
           </View>
           <View style={{
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.15)',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
@@ -181,29 +191,33 @@ export const TeacherAttendanceScreen: React.FC = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.teal} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         <View style={{ paddingHorizontal: 18, paddingTop: 20 }}>
 
-          {/* ─── Statistiques ──────────────────────────────────────────────────── */}
+          {/* ─── STATISTIQUES ─── */}
           <View style={{
             flexDirection: 'row',
             gap: 10,
             marginBottom: 20,
           }}>
             {[
-              { label: 'Présents', value: stats.presents, icon: 'user-check', color: C.green, bg: C.greenBg },
-              { label: 'Absents', value: stats.absents, icon: 'user-x', color: C.red, bg: C.redBg },
-              { label: 'Justifiés', value: stats.justifies, icon: 'file-text', color: C.amber, bg: C.amberBg },
+              { label: 'Présents', value: stats.presents, icon: 'user-check', color: colors.success, bg: colors.success + '15' },
+              { label: 'Absents', value: stats.absents, icon: 'user-x', color: colors.error, bg: colors.error + '15' },
+              { label: 'Justifiés', value: stats.justifies, icon: 'file-text', color: colors.warning, bg: colors.warning + '15' },
             ].map((stat) => (
               <View key={stat.label} style={{
                 flex: 1,
-                backgroundColor: C.surface,
+                backgroundColor: colors.surface,
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: C.border,
+                borderColor: colors.border,
                 padding: 12,
                 alignItems: 'center',
               }}>
@@ -228,7 +242,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
                 </Text>
                 <Text style={{
                   fontSize: 9,
-                  color: C.textMuted,
+                  color: colors.textMuted,
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                   marginTop: 2,
@@ -239,7 +253,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
             ))}
           </View>
 
-          {/* ─── Filtres ────────────────────────────────────────────────────────── */}
+          {/* ─── FILTRES ─── */}
           <View style={{
             flexDirection: 'row',
             gap: 8,
@@ -261,9 +275,9 @@ export const TeacherAttendanceScreen: React.FC = () => {
                     paddingVertical: 8,
                     paddingHorizontal: 12,
                     borderRadius: 12,
-                    backgroundColor: isActive ? C.teal : C.surface,
+                    backgroundColor: isActive ? colors.primary : colors.surface,
                     borderWidth: 1,
-                    borderColor: isActive ? C.teal : C.border,
+                    borderColor: isActive ? colors.primary : colors.border,
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -273,12 +287,12 @@ export const TeacherAttendanceScreen: React.FC = () => {
                   <Text style={{
                     fontSize: 12,
                     fontWeight: '600',
-                    color: isActive ? '#FFFFFF' : C.textMuted,
+                    color: isActive ? '#FFFFFF' : colors.textMuted,
                   }}>
                     {f.label}
                   </Text>
                   <View style={{
-                    backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : C.border,
+                    backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : colors.border,
                     borderRadius: 6,
                     paddingHorizontal: 6,
                     paddingVertical: 1,
@@ -286,7 +300,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
                     <Text style={{
                       fontSize: 10,
                       fontWeight: '700',
-                      color: isActive ? '#FFFFFF' : C.textMuted,
+                      color: isActive ? '#FFFFFF' : colors.textMuted,
                     }}>
                       {f.count}
                     </Text>
@@ -296,7 +310,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
             })}
           </View>
 
-          {/* ─── Liste des élèves ────────────────────────────────────────────── */}
+          {/* ─── LISTE DES ÉLÈVES ─── */}
           {filteredEleves.map((eleve, index) => {
             const isPresent = eleve.present;
             const isJustifie = eleve.justifie;
@@ -305,29 +319,37 @@ export const TeacherAttendanceScreen: React.FC = () => {
               <View
                 key={eleve.id}
                 style={{
-                  backgroundColor: C.surface,
+                  backgroundColor: colors.surface,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: isPresent ? `${C.green}30` : isJustifie ? `${C.amber}30` : `${C.red}30`,
+                  borderColor: isPresent ? `${colors.success}30` : isJustifie ? `${colors.warning}30` : `${colors.error}30`,
                   marginBottom: 10,
                   padding: 14,
                 }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
                   {/* Infos élève */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}>
                     <View style={{
                       width: 40,
                       height: 40,
                       borderRadius: 12,
-                      backgroundColor: isPresent ? C.greenBg : isJustifie ? C.amberBg : C.redBg,
+                      backgroundColor: isPresent ? colors.success + '15' : isJustifie ? colors.warning + '15' : colors.error + '15',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}>
                       <Text style={{
                         fontSize: 14,
                         fontWeight: '700',
-                        color: isPresent ? C.green : isJustifie ? C.amber : C.red,
+                        color: isPresent ? colors.success : isJustifie ? colors.warning : colors.error,
                       }}>
                         {`${eleve.prenoms[0]}${eleve.nom[0]}`.toUpperCase()}
                       </Text>
@@ -336,7 +358,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
                       <Text style={{
                         fontSize: 15,
                         fontWeight: '600',
-                        color: C.textPrimary,
+                        color: colors.text,
                         letterSpacing: -0.2,
                       }}>
                         {eleve.prenoms} {eleve.nom}
@@ -344,7 +366,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
                       {!isPresent && isJustifie && (
                         <Text style={{
                           fontSize: 10,
-                          color: C.amber,
+                          color: colors.warning,
                           fontWeight: '600',
                           marginTop: 1,
                         }}>
@@ -364,7 +386,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
                         paddingHorizontal: 14,
                         paddingVertical: 8,
                         borderRadius: 12,
-                        backgroundColor: isPresent ? C.green : C.red,
+                        backgroundColor: isPresent ? colors.success : colors.error,
                         flexDirection: 'row',
                         alignItems: 'center',
                         gap: 6,
@@ -393,7 +415,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
                           paddingHorizontal: 12,
                           paddingVertical: 8,
                           borderRadius: 12,
-                          backgroundColor: isJustifie ? C.amber : C.border,
+                          backgroundColor: isJustifie ? colors.warning : colors.border,
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
@@ -401,7 +423,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
                         <Feather 
                           name="file-text" 
                           size={16} 
-                          color={isJustifie ? '#FFFFFF' : C.textMuted} 
+                          color={isJustifie ? '#FFFFFF' : colors.textMuted} 
                         />
                       </TouchableOpacity>
                     )}
@@ -416,19 +438,19 @@ export const TeacherAttendanceScreen: React.FC = () => {
                   marginTop: 10,
                   paddingTop: 10,
                   borderTopWidth: 1,
-                  borderTopColor: C.border,
+                  borderTopColor: colors.border,
                 }}>
                   <View style={{
                     width: 6,
                     height: 6,
                     borderRadius: 3,
-                    backgroundColor: isPresent ? C.green : isJustifie ? C.amber : C.red,
+                    backgroundColor: isPresent ? colors.success : isJustifie ? colors.warning : colors.error,
                   }} />
                   <Text style={{
                     fontSize: 10,
-                    color: C.textMuted,
+                    color: colors.textMuted,
                   }}>
-                    {isPresent ? 'Présent aujourd\'hui' : 
+                    {isPresent ? "Présent aujourd'hui" : 
                      isJustifie ? 'Absence justifiée' : 
                      'Absence non justifiée'}
                   </Text>
@@ -440,25 +462,25 @@ export const TeacherAttendanceScreen: React.FC = () => {
           {/* Message vide */}
           {filteredEleves.length === 0 && (
             <View style={{
-              backgroundColor: C.surface,
+              backgroundColor: colors.surface,
               borderRadius: 16,
               borderWidth: 1,
-              borderColor: C.border,
+              borderColor: colors.border,
               padding: 30,
               alignItems: 'center',
             }}>
-              <Feather name="users" size={40} color={C.textMuted} />
+              <Feather name="users" size={40} color={colors.textMuted} />
               <Text style={{
                 fontSize: 16,
                 fontWeight: '600',
-                color: C.textSecondary,
+                color: colors.textSecondary,
                 marginTop: 10,
               }}>
                 Aucun élève trouvé
               </Text>
               <Text style={{
                 fontSize: 13,
-                color: C.textMuted,
+                color: colors.textMuted,
                 marginTop: 4,
               }}>
                 Aucun élève ne correspond à ce filtre
@@ -468,7 +490,7 @@ export const TeacherAttendanceScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* ─── Bouton de sauvegarde flottant ────────────────────────────────────── */}
+      {/* ─── BOUTON DE SAUVEGARDE FLOTTANT ─── */}
       <View style={{
         position: 'absolute',
         bottom: 0,
@@ -484,16 +506,16 @@ export const TeacherAttendanceScreen: React.FC = () => {
           onPress={handleSave}
           disabled={isSaving}
           style={{
-            backgroundColor: isSaving ? C.textMuted : C.teal,
+            backgroundColor: isSaving ? colors.textMuted : colors.primary,
             borderRadius: 16,
             height: 56,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 10,
-            shadowColor: C.teal,
+            shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.3,
+            shadowOpacity: 0.25,
             shadowRadius: 20,
             elevation: 8,
           }}
@@ -535,11 +557,11 @@ export const TeacherAttendanceScreen: React.FC = () => {
             width: 6,
             height: 6,
             borderRadius: 3,
-            backgroundColor: stats.tauxPresence >= 80 ? C.green : stats.tauxPresence >= 50 ? C.amber : C.red,
+            backgroundColor: stats.tauxPresence >= 80 ? colors.success : stats.tauxPresence >= 50 ? colors.warning : colors.error,
           }} />
           <Text style={{
             fontSize: 11,
-            color: C.textMuted,
+            color: colors.textMuted,
           }}>
             Taux de présence : {stats.tauxPresence}%
           </Text>

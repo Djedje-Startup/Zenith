@@ -1,19 +1,12 @@
 // navigation/index.tsx
-import React, { useEffect, useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Platform,
-  Animated,
-  Dimensions,
-  PanResponder,
-} from 'react-native';
+import React from 'react';
+import { View, Text, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
 
 import { useAppStore } from '../store';
+import { useTheme } from '../theme';
 
 // ─── Écrans d'authentification ──────────────────────────────────────────────
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -56,6 +49,7 @@ import { TeacherGradeEntryScreen } from '../screens/professeur/TeacherGradeEntry
 import { TeacherAttendanceScreen } from '../screens/professeur/TeacherAttendanceScreen';
 import { TeacherTimetableScreen } from '../screens/professeur/TeacherTimetableScreen';
 import { TeacherClubsScreen } from '../screens/professeur/TeacherClubsScreen';
+import { TeacherPaySlipsScreen } from '../screens/professeur/TeacherPaySlipsScreen';
 
 // ─── Écrans partagés ──────────────────────────────────────────────────────────
 import { ProfileScreen } from '../screens/shared/ProfileScreen';
@@ -65,10 +59,17 @@ import { AboutScreen } from '../screens/shared/AboutScreen';
 import { MessagingScreen } from '../screens/shared/MessagingScreen';
 import { AnnouncementsScreen } from '../screens/shared/AnnouncementsScreen';
 
+// Écrans supplémentaires
+import { PersonalInfoScreen } from '../screens/shared/PersonalInfoScreen';
+import { SecurityScreen } from '../screens/shared/SecurityScreen';
+import { PreferencesScreen } from '../screens/shared/PreferencesScreen';
+
 // ─── Composants UI ────────────────────────────────────────────────────────────
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ──────────────────────────────────────────────────────────────────────────────
 export type RootStackParamList = {
   Login: undefined;
   SelectSchool: undefined;
@@ -79,6 +80,9 @@ export type RootStackParamList = {
   Notifications: undefined;
   Settings: undefined;
   About: undefined;
+  PersonalInfo: undefined;
+  Security: undefined;
+  Preferences: undefined;
   Messaging: { type: 'student' | 'parent' | 'teacher' };
   Announcements: { userRole: 'student' | 'parent' | 'teacher' };
   ChildrenList: undefined;
@@ -108,6 +112,7 @@ export type RootStackParamList = {
   TeacherAttendance: { classeId?: string; className?: string };
   TeacherTimetable: undefined;
   TeacherClubs: undefined;
+  TeacherPaySlips: undefined;
 };
 
 export type ParentTabParamList = {
@@ -131,352 +136,135 @@ export type TeacherTabParamList = {
   Profil: undefined;
 };
 
-// ─── Couleurs par icône ──────────────────────────────────────────────────────
-interface TabColor { active: string; activeBg: string }
-
-const TAB_COLORS: Record<string, TabColor> = {
-  'home':        { active: '#818CF8', activeBg: 'rgba(99,102,241,0.20)'  },
-  'users':       { active: '#2DD4BF', activeBg: 'rgba(45,212,191,0.18)'  },
-  'calendar':    { active: '#34D399', activeBg: 'rgba(52,211,153,0.18)'  },
-  'book-open':   { active: '#34D399', activeBg: 'rgba(52,211,153,0.18)'  },
-  'credit-card': { active: '#FBBF24', activeBg: 'rgba(251,191,36,0.18)'  },
-  'user':        { active: '#F472B6', activeBg: 'rgba(244,114,182,0.18)' },
-};
-const getTC = (icon: string): TabColor =>
-  TAB_COLORS[icon] ?? { active: '#818CF8', activeBg: 'rgba(99,102,241,0.20)' };
-
-// ─── Tab Item ─────────────────────────────────────────────────────────────────
-interface TabItem { name: string; label: string; icon: keyof typeof Feather.glyphMap }
-
-// ─── Custom Tab Bar Verticale Déplaçable ─────────────────────────────────────
-interface CustomTabBarProps {
-  state: any;
-  descriptors: any;
-  navigation: any;
-  tabs: TabItem[];
-}
-
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-const TAB_HEIGHT = 52;
-const TAB_MARGIN = 6;
-const TAB_BAR_WIDTH = 68;
-const COLLAPSED_HEIGHT = 60;
-
-const CustomTabBar: React.FC<CustomTabBarProps> = ({ state, navigation, tabs }) => {
-  const [expanded, setExpanded] = useState(true);
-  const [position, setPosition] = useState({ x: SCREEN_WIDTH - TAB_BAR_WIDTH - 16, y: SCREEN_HEIGHT / 2 - 100 });
-  const expandAnim = useRef(new Animated.Value(1)).current;
-  const positionAnim = useRef(new Animated.ValueXY(position)).current;
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-      },
-      onPanResponderMove: (_, gesture) => {
-        let newX = position.x + gesture.dx;
-        let newY = position.y + gesture.dy;
-        
-        const barHeight = expanded ? tabs.length * (TAB_HEIGHT + TAB_MARGIN) + 60 : COLLAPSED_HEIGHT;
-        newX = Math.max(0, Math.min(SCREEN_WIDTH - TAB_BAR_WIDTH, newX));
-        newY = Math.max(0, Math.min(SCREEN_HEIGHT - barHeight - 20, newY));
-        
-        positionAnim.setValue({ x: newX, y: newY });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        const newX = Math.max(0, Math.min(SCREEN_WIDTH - TAB_BAR_WIDTH, position.x + gesture.dx));
-        const newY = Math.max(0, Math.min(SCREEN_HEIGHT - (expanded ? tabs.length * (TAB_HEIGHT + TAB_MARGIN) + 60 : COLLAPSED_HEIGHT) - 20, position.y + gesture.dy));
-        setPosition({ x: newX, y: newY });
-        scheduleCollapse();
-      },
-    })
-  ).current;
-
-  const animate = (toValue: number, cb?: () => void) => {
-    Animated.spring(expandAnim, {
-      toValue,
-      useNativeDriver: false,
-      tension: 80,
-      friction: 10,
-    }).start(cb);
-  };
-
-  const scheduleCollapse = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setExpanded(false);
-      animate(0);
-    }, 4000);
-  };
-
-  const toggle = () => {
-    if (expanded) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setExpanded(false);
-      animate(0);
-    } else {
-      setExpanded(true);
-      animate(1);
-      scheduleCollapse();
-    }
-  };
-
-  useEffect(() => {
-    scheduleCollapse();
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, []);
-
-  useEffect(() => {
-    if (!expanded) {
-      setExpanded(true);
-      animate(1);
-    }
-    scheduleCollapse();
-  }, [state.index]);
-
-  const contentOpacity = expandAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 0, 1],
-  });
-  const contentScale = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.7, 1],
-  });
-  const toggleRotate = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-  
-  const containerPaddingVertical = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [6, 10],
-  });
-  
-  const containerMinHeight = expandAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [48, 48],
-  });
-
-  const focusedTab = tabs[state.index];
-  const focusedTC = focusedTab ? getTC(focusedTab.icon) : getTC('home');
-
-  const totalTabsHeight = tabs.length * (TAB_HEIGHT + TAB_MARGIN) - TAB_MARGIN;
-
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        transform: positionAnim.getTranslateTransform(),
-        backgroundColor: 'transparent',
-        alignItems: 'flex-end',
-      }}
-      {...panResponder.panHandlers}
-    >
-      <View style={{
-        width: TAB_BAR_WIDTH - 20,
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: 4,
-      }} />
-
-      <Animated.View style={{
-        backgroundColor: '#0A0C12',
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: expanded ? '#1C2030' : focusedTC.active + '40',
-        paddingVertical: containerPaddingVertical,
-        paddingHorizontal: 10,
-        shadowColor: expanded ? '#000' : focusedTC.active,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: expanded ? 0.35 : 0.25,
-        shadowRadius: expanded ? 16 : 10,
-        elevation: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: containerMinHeight,
-        minWidth: TAB_BAR_WIDTH - 20,
-      }}>
-        <Animated.View style={{
-          opacity: contentOpacity,
-          transform: [{ scale: contentScale }],
-          gap: TAB_MARGIN,
-          marginBottom: expanded ? 6 : 0,
-          maxHeight: expanded ? totalTabsHeight : 0,
-          overflow: 'hidden',
-        }}>
-          {tabs.map((tab, index) => {
-            const focused = state.index === index;
-            const tc = getTC(tab.icon);
-            return (
-              <TouchableOpacity
-                key={tab.name}
-                activeOpacity={0.75}
-                onPress={() => {
-                  navigation.navigate(tab.name);
-                  scheduleCollapse();
-                }}
-                style={{
-                  width: 44,
-                  height: TAB_HEIGHT,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: focused ? tc.activeBg : 'transparent',
-                  borderWidth: focused ? 1 : 0,
-                  borderColor: focused ? tc.active + '50' : 'transparent',
-                  shadowColor: focused ? tc.active : 'transparent',
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: focused ? 0.5 : 0,
-                  shadowRadius: focused ? 8 : 0,
-                  elevation: focused ? 4 : 0,
-                }}
-              >
-                <Feather
-                  name={tab.icon}
-                  size={focused ? 22 : 20}
-                  color={focused ? tc.active : '#30364A'}
-                />
-                {focused && (
-                  <View style={{
-                    position: 'absolute',
-                    right: -1,
-                    top: '50%',
-                    marginTop: -10,
-                    width: 3,
-                    height: 20,
-                    borderRadius: 2,
-                    backgroundColor: tc.active,
-                  }} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </Animated.View>
-
-        <TouchableOpacity
-          activeOpacity={0.75}
-          onPress={toggle}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 14,
-            backgroundColor: expanded ? '#12151E' : focusedTC.activeBg,
-            borderWidth: 1,
-            borderColor: expanded ? '#1C2030' : focusedTC.active + '50',
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: expanded ? 'transparent' : focusedTC.active,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: expanded ? 0 : 0.4,
-            shadowRadius: expanded ? 0 : 8,
-            elevation: expanded ? 0 : 4,
-          }}
-        >
-          <Animated.View style={{ transform: [{ rotate: toggleRotate }] }}>
-            <Feather
-              name="chevrons-up"
-              size={14}
-              color={expanded ? '#4A5070' : focusedTC.active}
-            />
-          </Animated.View>
-        </TouchableOpacity>
-      </Animated.View>
-
-      {!expanded && focusedTab && (
-        <View style={{
-          position: 'absolute',
-          bottom: -32,
-          right: 0,
-          backgroundColor: '#0A0C12',
-          borderRadius: 8,
-          borderWidth: 1,
-          borderColor: focusedTC.active + '40',
-          paddingVertical: 2,
-          paddingHorizontal: 8,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 4,
-        }}>
-          <View style={{
-            width: 4, height: 4, borderRadius: 2,
-            backgroundColor: focusedTC.active,
-          }} />
-          <Text style={{
-            fontSize: 7,
-            fontWeight: '700',
-            color: focusedTC.active,
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-          }}>
-            {focusedTab.label}
-          </Text>
-        </View>
-      )}
-    </Animated.View>
-  );
-};
-
-// ─── Tab configs ──────────────────────────────────────────────────────────────
-const PARENT_TABS: TabItem[] = [
-  { name: 'Accueil',   label: 'Accueil',   icon: 'home'        },
-  { name: 'Enfants',   label: 'Enfants',   icon: 'users'       },
-  { name: 'Paiements', label: 'Paiements', icon: 'credit-card' },
-  { name: 'Profil',    label: 'Profil',    icon: 'user'        },
-];
-
-const STUDENT_TABS: TabItem[] = [
-  { name: 'Accueil', label: 'Accueil', icon: 'home'      },
-  { name: 'Emploi',  label: 'Emploi',  icon: 'calendar'  },
-  { name: 'Notes',   label: 'Notes',   icon: 'book-open' },
-  { name: 'Profil',  label: 'Profil',  icon: 'user'      },
-];
-
-const TEACHER_TABS: TabItem[] = [
-  { name: 'Accueil', label: 'Accueil', icon: 'home'     },
-  { name: 'Classes', label: 'Classes', icon: 'users'    },
-  { name: 'Emploi',  label: 'Emploi',  icon: 'calendar' },
-  { name: 'Profil',  label: 'Profil',  icon: 'user'     },
-];
-
 // ─── Tab Navigators ───────────────────────────────────────────────────────────
 const ParentTab = createBottomTabNavigator<ParentTabParamList>();
 const StudentTab = createBottomTabNavigator<StudentTabParamList>();
 const TeacherTab = createBottomTabNavigator<TeacherTabParamList>();
 
-const ParentTabs = () => (
-  <ParentTab.Navigator screenOptions={{ headerShown: false }}
-    tabBar={(p) => <CustomTabBar {...p} tabs={PARENT_TABS} />}>
-    <ParentTab.Screen name="Accueil"   component={ParentHomeScreen}    />
-    <ParentTab.Screen name="Enfants"   component={ChildrenListScreen}  />
-    <ParentTab.Screen name="Paiements" component={ParentPaymentsScreen}/>
-    <ParentTab.Screen name="Profil"    component={ProfileScreen}       />
-  </ParentTab.Navigator>
-);
+const getTabScreenOptions = (theme: any) => ({
+  headerShown: false,
+  tabBarActiveTintColor: theme.primary,
+  tabBarInactiveTintColor: '#8E8E93',
+  tabBarStyle: {
+    backgroundColor: theme.card || '#FFFFFF',
+    borderTopColor: theme.border || 'rgba(0,0,0,0.1)',
+    height: Platform.OS === 'ios' ? 88 : 60,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 8,
+    paddingTop: 8,
+  },
+  tabBarLabelStyle: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+});
 
-const StudentTabs = () => (
-  <StudentTab.Navigator screenOptions={{ headerShown: false }}
-    tabBar={(p) => <CustomTabBar {...p} tabs={STUDENT_TABS} />}>
-    <StudentTab.Screen name="Accueil" component={StudentHomeScreen}     />
-    <StudentTab.Screen name="Emploi"  component={StudentTimetableScreen}/>
-    <StudentTab.Screen name="Notes"   component={StudentGradesScreen}   />
-    <StudentTab.Screen name="Profil"  component={ProfileScreen}         />
-  </StudentTab.Navigator>
-);
+const ParentTabs = () => {
+  const { theme } = useTheme();
+  return (
+    <ParentTab.Navigator screenOptions={getTabScreenOptions(theme)}>
+      <ParentTab.Screen
+        name="Accueil"
+        component={ParentHomeScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} />,
+        }}
+      />
+      <ParentTab.Screen
+        name="Enfants"
+        component={ChildrenListScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="users" size={size} color={color} />,
+        }}
+      />
+      <ParentTab.Screen
+        name="Paiements"
+        component={ParentPaymentsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="credit-card" size={size} color={color} />,
+        }}
+      />
+      <ParentTab.Screen
+        name="Profil"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
+        }}
+      />
+    </ParentTab.Navigator>
+  );
+};
 
-const TeacherTabs = () => (
-  <TeacherTab.Navigator screenOptions={{ headerShown: false }}
-    tabBar={(p) => <CustomTabBar {...p} tabs={TEACHER_TABS} />}>
-    <TeacherTab.Screen name="Accueil" component={TeacherHomeScreen}     />
-    <TeacherTab.Screen name="Classes" component={TeacherClassesScreen}  />
-    <TeacherTab.Screen name="Emploi"  component={TeacherTimetableScreen}/>
-    <TeacherTab.Screen name="Profil"  component={ProfileScreen}         />
-  </TeacherTab.Navigator>
-);
+const StudentTabs = () => {
+  const { theme } = useTheme();
+  return (
+    <StudentTab.Navigator screenOptions={getTabScreenOptions(theme)}>
+      <StudentTab.Screen
+        name="Accueil"
+        component={StudentHomeScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} />,
+        }}
+      />
+      <StudentTab.Screen
+        name="Emploi"
+        component={StudentTimetableScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} />,
+        }}
+      />
+      <StudentTab.Screen
+        name="Notes"
+        component={StudentGradesScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="book-open" size={size} color={color} />,
+        }}
+      />
+      <StudentTab.Screen
+        name="Profil"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
+        }}
+      />
+    </StudentTab.Navigator>
+  );
+};
+
+const TeacherTabs = () => {
+  const { theme } = useTheme();
+  return (
+    <TeacherTab.Navigator screenOptions={getTabScreenOptions(theme)}>
+      <TeacherTab.Screen
+        name="Accueil"
+        component={TeacherHomeScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} />,
+        }}
+      />
+      <TeacherTab.Screen
+        name="Classes"
+        component={TeacherClassesScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="users" size={size} color={color} />,
+        }}
+      />
+      <TeacherTab.Screen
+        name="Emploi"
+        component={TeacherTimetableScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} />,
+        }}
+      />
+      <TeacherTab.Screen
+        name="Profil"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
+        }}
+      />
+    </TeacherTab.Navigator>
+  );
+};
 
 // ─── Stack Navigator ──────────────────────────────────────────────────────────
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -487,6 +275,7 @@ const fade = { animation: 'fade' as const, animationDuration: 350 };
 
 export const AppNavigator = () => {
   const { user, isAuthenticated, isLoading } = useAppStore();
+  const { theme } = useTheme();
   const userRole = user?.role ?? 'PARENT';
 
   if (isLoading) return <LoadingSpinner fullScreen text="Chargement..." />;
@@ -499,7 +288,7 @@ export const AppNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{
       headerShown: false,
-      contentStyle: { backgroundColor: '#0E1117' },
+      contentStyle: { backgroundColor: theme.background },
       animation: 'slide_from_right',
       animationDuration: 260,
     }}>
@@ -513,16 +302,21 @@ export const AppNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="Main" component={MainTabsComponent} options={fade} />
-          
+
+          {/* ─── Écrans partagés ─────────────────────────────────────────── */}
           <Stack.Screen name="Profile" component={ProfileScreen} options={slideFromBottom} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} options={slideFromBottom} />
           <Stack.Screen name="Settings" component={SettingsScreen} options={slideFromBottom} />
           <Stack.Screen name="About" component={AboutScreen} options={slideFromBottom} />
-          
+
+          <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} options={slideFromBottom} />
+          <Stack.Screen name="Security" component={SecurityScreen} options={slideFromBottom} />
+          <Stack.Screen name="Preferences" component={PreferencesScreen} options={slideFromBottom} />
+
           <Stack.Screen name="Messaging" options={slideFromRight}>
             {(props) => <MessagingScreen {...props} type={userRole.toLowerCase() as 'student' | 'parent' | 'teacher'} />}
           </Stack.Screen>
-          
+
           <Stack.Screen name="Announcements" options={slideFromRight}>
             {(props) => <AnnouncementsScreen {...props} userRole={userRole.toLowerCase() as 'student' | 'parent' | 'teacher'} />}
           </Stack.Screen>
@@ -556,6 +350,7 @@ export const AppNavigator = () => {
           <Stack.Screen name="TeacherAttendance" component={TeacherAttendanceScreen} options={slideFromBottom} />
           <Stack.Screen name="TeacherTimetable" component={TeacherTimetableScreen} options={slideFromRight} />
           <Stack.Screen name="TeacherClubs" component={TeacherClubsScreen} options={slideFromRight} />
+          <Stack.Screen name="TeacherPaySlips" component={TeacherPaySlipsScreen} options={slideFromBottom} />
         </>
       )}
     </Stack.Navigator>

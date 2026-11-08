@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// screens/eleve/StudentHomeScreen.tsx
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,42 +7,18 @@ import {
   TouchableOpacity,
   RefreshControl,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { useTheme } from '../../theme';
 
-const C = {
-  bg: '#0E1117',
-  surface: '#12151E',
-  surfaceAlt: '#161A24',
-  border: '#1C2030',
-  borderSub: '#141720',
-  accent: '#6366F1',
-  accentDim: '#818CF8',
-  accentBg: 'rgba(99,102,241,0.10)',
-  green: '#34D399',
-  greenBg: 'rgba(16,185,129,0.09)',
-  purple: '#A78BFA',
-  purpleBg: 'rgba(167,139,250,0.09)',
-  pink: '#F472B6',
-  pinkBg: 'rgba(244,114,182,0.09)',
-  blue: '#60A5FA',
-  blueBg: 'rgba(96,165,250,0.09)',
-  amber: '#FBBF24',
-  amberBg: 'rgba(251,191,36,0.09)',
-  red: '#EF4444',
-  redBg: 'rgba(239,68,68,0.09)',
-  teal: '#2DD4BF',
-  tealBg: 'rgba(45,212,191,0.09)',
-  textPrimary: '#E8EAF0',
-  textSecondary: '#CDD0E0',
-  textMuted: '#4A5060',
-  textDim: '#2E3245',
-};
-
+// ──────────────────────────────────────────────────────────────
+// DONNÉES MOCKÉES
+// ──────────────────────────────────────────────────────────────
 const MOCK_STUDENT = {
   nom: 'MOUKOKO',
   prenoms: 'Jean Junior',
@@ -65,82 +42,150 @@ const MOCK_STUDENT = {
   ],
 };
 
-// ✅ Accès rapide avec navigation
-const QUICK_ACCESS = [
-  { 
-    label: 'Emploi du temps', 
-    icon: 'calendar' as const, 
-    color: C.blue,   
-    bg: C.blueBg,
-    screen: 'StudentTimetable' 
-  },
-  { 
-    label: 'Mes notes',       
-    icon: 'book-open' as const, 
-    color: C.green,  
-    bg: C.greenBg,
-    screen: 'StudentGrades' 
-  },
-  { 
-    label: 'Présences',       
-    icon: 'check-square' as const, 
-    color: C.purple, 
-    bg: C.purpleBg,
-    screen: 'StudentAttendance' 
-  },
-  { 
-    label: 'Clubs',           
-    icon: 'users' as const, 
-    color: C.pink,   
-    bg: C.pinkBg,
-    screen: 'StudentClubs' 
-  },
-];
+// ─── GRADIENTS TYPES ──────────────────────────────────────────────────────
+const GRADIENT_BRAND: [string, string] = ['#F97316', '#8B5CF6'];
 
-// ✅ Nouvelles fonctionnalités (avec Historique des paiements)
-const STUDENT_FEATURES = [
-  { id: 'announcements', label: 'Annonces', icon: 'bell' as const, screen: 'Announcements', color: C.blue },
-  { id: 'elections', label: 'Élections & BDE', icon: 'award' as const, screen: 'StudentElections', color: C.purple },
-  { id: 'courses', label: 'Cours', icon: 'book' as const, screen: 'StudentCourse', color: C.green },
-  { id: 'messaging', label: 'Messagerie', icon: 'message-circle' as const, screen: 'Messaging', color: C.accent },
-  { id: 'library', label: 'Bibliothèque', icon: 'book-open' as const, screen: 'StudentLibrary', color: C.amber },
-  { id: 'rooms', label: 'Salles', icon: 'map-pin' as const, screen: 'StudentRooms', color: C.teal },
-  { id: 'paymentHistory', label: 'Historique paiements', icon: 'credit-card' as const, screen: 'StudentPaymentHistory', color: C.green }, // ✅ Ajout
-];
-
-const getMentionStyle = (mention: string) => {
-  switch (mention) {
-    case 'EXCELLENT':  return { color: C.green,  bg: C.greenBg,  label: 'Excellent'  };
-    case 'TRES_BIEN':  return { color: C.blue,   bg: C.blueBg,   label: 'Très bien'  };
-    case 'BIEN':       return { color: C.accent, bg: C.accentBg, label: 'Bien'       };
-    case 'ASSEZ_BIEN': return { color: C.amber,  bg: C.amberBg,  label: 'Assez bien' };
-    default:           return { color: C.red,    bg: C.redBg,    label: 'Insuffisant'};
-  }
+// ─── COMPOSANTS ────────────────────────────────────────────────────────
+const SectionTitle = ({ children }: { children: string }) => {
+  const { colors } = useTheme();
+  return (
+    <Text style={{
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+      marginTop: 22,
+      marginBottom: 12,
+    }}>
+      {children}
+    </Text>
+  );
 };
 
-const GradeBubble = ({ note }: { note: number }) => {
-  const isGood = note >= 15;
-  const isMid  = note >= 10;
-  const color  = isGood ? C.green : isMid ? C.accentDim : C.red;
-  const bg     = isGood ? C.greenBg : isMid ? C.accentBg : C.redBg;
+// ─── COMPOSANT CERCLE ORANGE ──────────────────────────────────────────
+const QuickAccessCircle = ({ 
+  item, 
+  onPress 
+}: { 
+  item: { label: string; icon: keyof typeof Feather.glyphMap; screen: string }; 
+  onPress: () => void;
+}) => {
+  const { colors } = useTheme();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.92,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
-    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 14, fontWeight: '700', color }}>{note}</Text>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={onPress}
+      style={{ alignItems: 'center', width: 72 }}
+    >
+      <Animated.View style={{
+        transform: [{ scale: scaleAnim }],
+        alignItems: 'center',
+      }}>
+        <LinearGradient
+          colors={['#F97316', '#FB923C']}
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#F97316',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
+        >
+          <Feather name={item.icon} size={24} color="#FFFFFF" />
+        </LinearGradient>
+        <Text style={{
+          fontSize: 11,
+          fontWeight: '500',
+          color: colors.textSecondary,
+          marginTop: 6,
+          textAlign: 'center',
+        }}>
+          {item.label}
+        </Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── COMPOSANT STAT CARD ──────────────────────────────────────────────
+const StatCard = ({ value, label, icon, color }: { 
+  value: string | number; 
+  label: string; 
+  icon: keyof typeof Feather.glyphMap;
+  color: string;
+}) => {
+  const { colors } = useTheme();
+  
+  return (
+    <View style={{
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      alignItems: 'center',
+    }}>
+      <View style={{
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        backgroundColor: color + '20',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+      }}>
+        <Feather name={icon} size={18} color={color} />
+      </View>
+      <Text style={{
+        fontSize: 22,
+        fontWeight: '700',
+        color: colors.text,
+        letterSpacing: -0.5,
+      }}>
+        {value}
+      </Text>
+      <Text style={{
+        fontSize: 10,
+        color: colors.textMuted,
+        marginTop: 2,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+        fontWeight: '500',
+      }}>
+        {label}
+      </Text>
     </View>
   );
 };
 
-const SectionTitle = ({ children }: { children: string }) => (
-  <Text style={{
-    fontSize: 11, fontWeight: '700', color: '#7880A0',
-    textTransform: 'uppercase', letterSpacing: 1.2,
-    marginTop: 22, marginBottom: 10,
-  }}>
-    {children}
-  </Text>
-);
-
+// ─── SCREEN PRINCIPAL ──────────────────────────────────────────────────
 export const StudentHomeScreen: React.FC = () => {
+  const { colors } = useTheme();
   const { user } = useAuth();
   const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
@@ -155,286 +200,356 @@ export const StudentHomeScreen: React.FC = () => {
     navigation.navigate(screen, params);
   };
 
+  // ─── Actions rapides ───
+  const QUICK_ACCESS = [
+    { label: 'Emploi du temps', icon: 'calendar' as const, screen: 'StudentTimetable' },
+    { label: 'Mes notes', icon: 'book-open' as const, screen: 'StudentGrades' },
+    { label: 'Présences', icon: 'check-square' as const, screen: 'StudentAttendance' },
+    { label: 'Clubs', icon: 'users' as const, screen: 'StudentClubs' },
+  ];
+
+  // ─── Services ───
+  const SERVICES = [
+    { id: 'announcements', label: 'Annonces', icon: 'bell' as const, screen: 'Announcements' },
+    { id: 'elections', label: 'Élections & BDE', icon: 'award' as const, screen: 'StudentElections' },
+    { id: 'courses', label: 'Cours', icon: 'book' as const, screen: 'StudentCourse' },
+    { id: 'messaging', label: 'Messagerie', icon: 'message-circle' as const, screen: 'Messaging' },
+    { id: 'library', label: 'Bibliothèque', icon: 'book-open' as const, screen: 'StudentLibrary' },
+    { id: 'rooms', label: 'Salles', icon: 'map-pin' as const, screen: 'StudentRooms' },
+    { id: 'paymentHistory', label: 'Historique paiements', icon: 'credit-card' as const, screen: 'StudentPaymentHistory' },
+  ];
+
   if (!user) return <LoadingSpinner fullScreen />;
 
-  const mention = getMentionStyle(student.mention);
   const initials = `${student.prenoms[0]}${student.nom[0]}`.toUpperCase();
+
+  // Gestion des mentions
+  const getMentionStyle = (mention: string) => {
+    switch (mention) {
+      case 'EXCELLENT':  return { color: colors.success, bg: colors.success + '15' };
+      case 'TRES_BIEN':  return { color: colors.info, bg: colors.info + '15' };
+      case 'BIEN':       return { color: colors.primary, bg: colors.primary + '15' };
+      case 'ASSEZ_BIEN': return { color: colors.warning, bg: colors.warning + '15' };
+      default:           return { color: colors.error, bg: colors.error + '15' };
+    }
+  };
+
+  const mentionStyle = getMentionStyle(student.mention);
   const avg = student.moyenneGenerale.toFixed(1);
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
       >
-        {/* ───── Header ───── */}
-        <View style={{
-          backgroundColor: '#12151E',
-          paddingTop: 56,
-          paddingBottom: 40,
-          paddingHorizontal: 22,
-          overflow: 'hidden',
-          position: 'relative',
-        }}>
-          <View style={{
-            position: 'absolute', top: -50, right: -50,
-            width: 200, height: 200,
-            backgroundColor: 'rgba(99,102,241,0.06)',
-            borderRadius: 100,
-          }} />
-          <View style={{
-            position: 'absolute', bottom: -30, left: -20,
-            width: 140, height: 140,
-            backgroundColor: 'rgba(167,139,250,0.05)',
-            borderRadius: 70,
-          }} />
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 2.5, color: C.accent, textTransform: 'uppercase' }}>
-              SURYA
-            </Text>
-            <LinearGradient
-              colors={['#3730A3', '#6366F1']}
-              style={{ width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#C7D2FE' }}>{initials}</Text>
-            </LinearGradient>
-          </View>
-
-          <Text style={{ fontSize: 12, color: C.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600' }}>
-            Bonjour,
-          </Text>
-          <Text style={{ fontSize: 22, fontWeight: '700', color: '#E8EAF0', marginTop: 3, letterSpacing: -0.3 }}>
-            {user.prenoms}
-          </Text>
-          <View style={{
-            marginTop: 10, alignSelf: 'flex-start',
-            backgroundColor: C.accentBg,
-            borderRadius: 8, borderWidth: 1, borderColor: '#252A40',
-            paddingVertical: 4, paddingHorizontal: 10,
-          }}>
-            <Text style={{ fontSize: 12, color: C.accentDim, fontWeight: '600', letterSpacing: 0.3 }}>
-              {student.classe}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ paddingHorizontal: 16, paddingBottom: 36 }}>
-
-          {/* ───── Carte moyenne générale ───── */}
-          <View style={{
-            backgroundColor: C.surface,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: C.border,
-            padding: 20,
-            marginTop: -20,
-            alignItems: 'center',
-            marginBottom: 12,
-          }}>
-            <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: '600', marginBottom: 14 }}>
-              Moyenne générale
-            </Text>
-
-            <View style={{
-              width: 96, height: 96, borderRadius: 48,
-              backgroundColor: mention.bg,
-              borderWidth: 2, borderColor: `${mention.color}30`,
-              alignItems: 'center', justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <Text style={{ fontSize: 26, fontWeight: '800', color: mention.color, letterSpacing: -1 }}>
-                {avg}
-              </Text>
-              <Text style={{ fontSize: 11, color: `${mention.color}80`, fontWeight: '600', marginTop: -2 }}>
-                /20
-              </Text>
-            </View>
-
-            <View style={{
-              backgroundColor: mention.bg,
-              borderRadius: 8, borderWidth: 1,
-              borderColor: `${mention.color}25`,
-              paddingVertical: 4, paddingHorizontal: 14,
-              marginBottom: 18,
-            }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: mention.color, letterSpacing: 1, textTransform: 'uppercase' }}>
-                {mention.label}
-              </Text>
-            </View>
-
-            <View style={{
+        {/* ───── BANNIÈRE ZENITH ───── */}
+        <LinearGradient
+          colors={GRADIENT_BRAND}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            paddingTop: 56,
+            paddingBottom: 28,
+            paddingHorizontal: 22,
+            borderBottomLeftRadius: 28,
+            borderBottomRightRadius: 28,
+          }}
+        >
+          <View
+            style={{
               flexDirection: 'row',
-              width: '100%',
-              borderTopWidth: 1,
-              borderTopColor: C.borderSub,
-              paddingTop: 16,
-            }}>
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600', marginBottom: 6 }}>
-                  Rang
-                </Text>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: C.textPrimary, letterSpacing: -0.5 }}>
-                  {student.rang}
-                  <Text style={{ fontSize: 13, color: C.textMuted, fontWeight: '400' }}> / {student.effectifClasse}</Text>
-                </Text>
-              </View>
-
-              <View style={{ width: 1, backgroundColor: C.borderSub, marginHorizontal: 8 }} />
-
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '600', marginBottom: 6 }}>
-                  Présence
-                </Text>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: C.green, letterSpacing: -0.5 }}>
-                  {student.tauxPresence}
-                  <Text style={{ fontSize: 13, color: C.textMuted, fontWeight: '400' }}>%</Text>
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* ───── Prochain cours ───── */}
-          <SectionTitle>Prochain cours</SectionTitle>
-          <View style={{
-            backgroundColor: C.surface,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: C.border,
-            padding: 16,
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#DDE0ED', letterSpacing: -0.2 }}>
-                  {student.prochainCours.matiere}
-                </Text>
-                <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 4 }}>
-                  {student.prochainCours.professeur} · Salle {student.prochainCours.salle}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 5 }}>
-                  <Feather name="clock" size={14} color={C.textDim} />
-                  <Text style={{ fontSize: 11, color: C.textDim }}>
-                    {student.prochainCours.heureDebut} – {student.prochainCours.heureFin}
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: 'rgba(255,255,255,0.6)',
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Accueil
+              </Text>
+              <Text
+                style={{
+                  fontSize: 24,
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                  marginTop: 2,
+                  letterSpacing: -0.5,
+                }}
+              >
+                Bonjour, {student.prenoms}
+              </Text>
+              <View style={{
+                flexDirection: 'row',
+                gap: 6,
+                marginTop: 8,
+                flexWrap: 'wrap',
+              }}>
+                <View style={{
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  borderRadius: 6,
+                  paddingVertical: 2,
+                  paddingHorizontal: 8,
+                }}>
+                  <Text style={{
+                    fontSize: 10,
+                    color: 'rgba(255,255,255,0.8)',
+                    fontWeight: '600',
+                  }}>
+                    {student.classe}
+                  </Text>
+                </View>
+                <View style={{
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  borderRadius: 6,
+                  paddingVertical: 2,
+                  paddingHorizontal: 8,
+                }}>
+                  <Text style={{
+                    fontSize: 10,
+                    color: 'rgba(255,255,255,0.8)',
+                    fontWeight: '600',
+                  }}>
+                    {student.mention}
                   </Text>
                 </View>
               </View>
-              <View style={{
-                backgroundColor: '#1A1D2E',
-                borderWidth: 1, borderColor: '#252A40',
-                borderRadius: 10,
-                paddingVertical: 7, paddingHorizontal: 12,
-              }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: C.accentDim }}>
-                  {student.prochainCours.heureDebut}
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  borderRadius: 12,
+                  padding: 10,
+                }}
+                onPress={() => navigateTo('Notifications')}
+              >
+                <Feather name="bell" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => navigateTo('Profile')}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  borderRadius: 12,
+                  padding: 10,
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+                  {initials}
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
+        </LinearGradient>
 
-          {/* ───── Accès rapide avec navigation ───── */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 32 }}>
+
+          {/* ───── STATS RAPIDES ───── */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <StatCard
+              value={avg}
+              label="Moyenne"
+              icon="trending-up"
+              color={mentionStyle.color}
+            />
+            <StatCard
+              value={`${student.rang}e`}
+              label="Rang"
+              icon="award"
+              color={colors.warning}
+            />
+            <StatCard
+              value={`${student.tauxPresence}%`}
+              label="Présence"
+              icon="check-square"
+              color={colors.success}
+            />
+          </View>
+
+          {/* ───── ACCÈS RAPIDE (CERCLES ORANGE) ───── */}
           <SectionTitle>Accès rapide</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 4 }}>
             {QUICK_ACCESS.map((item) => (
-              <TouchableOpacity
+              <QuickAccessCircle
                 key={item.label}
-                activeOpacity={0.75}
+                item={item}
                 onPress={() => navigateTo(item.screen)}
-                style={{
-                  width: '47.5%',
-                  backgroundColor: C.surface,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: C.border,
-                  padding: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                }}
-              >
-                <View style={{
-                  width: 38, height: 38,
-                  borderRadius: 11,
-                  backgroundColor: item.bg,
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Feather name={item.icon} size={18} color={item.color} />
-                </View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary, flexShrink: 1 }}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
+              />
             ))}
           </View>
 
-          {/* ───── Services / Fonctionnalités ───── */}
+          {/* ───── SERVICES (CARTE ORANGE PREMIUM) ───── */}
           <SectionTitle>Services</SectionTitle>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {STUDENT_FEATURES.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                activeOpacity={0.75}
-                onPress={() => navigateTo(item.screen, { userRole: 'student' })}
+          <LinearGradient
+            colors={['#F97316', '#FB923C', '#8B5CF6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              borderRadius: 16,
+              padding: 20,
+              shadowColor: '#F97316',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.2,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around' }}>
+              {SERVICES.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.7}
+                  onPress={() => navigateTo(item.screen, { userRole: 'student' })}
+                  style={{ alignItems: 'center', width: '30%', marginBottom: 12 }}
+                >
+                  <View style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 6,
+                  }}>
+                    <Feather name={item.icon} size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={{
+                    fontSize: 9,
+                    fontWeight: '500',
+                    color: 'rgba(255,255,255,0.9)',
+                    textAlign: 'center',
+                  }}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </LinearGradient>
+
+          {/* ───── PROCHAIN COURS ───── */}
+          <SectionTitle>Prochain cours</SectionTitle>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigateTo('StudentTimetable')}
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: 13,
+              borderWidth: 1,
+              borderColor: colors.border,
+              padding: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: `${colors.primary}20`,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Feather name="clock" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: colors.text,
+              }}>
+                {student.prochainCours.matiere}
+              </Text>
+              <Text style={{
+                fontSize: 11,
+                color: colors.textMuted,
+                marginTop: 2,
+              }}>
+                {student.prochainCours.professeur} · Salle {student.prochainCours.salle}
+              </Text>
+              <Text style={{
+                fontSize: 11,
+                color: colors.textMuted,
+              }}>
+                {student.prochainCours.heureDebut} – {student.prochainCours.heureFin}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* ───── DERNIÈRES NOTES ───── */}
+          <SectionTitle>Dernières notes</SectionTitle>
+          {student.dernieresNotes.map((note) => {
+            const isGood = note.note >= 15;
+            const isMid = note.note >= 10;
+            const color = isGood ? colors.success : isMid ? colors.primary : colors.error;
+            const bg = isGood ? `${colors.success}20` : isMid ? `${colors.primary}20` : `${colors.error}20`;
+
+            return (
+              <View
+                key={note.id}
                 style={{
-                  width: '47.5%',
-                  backgroundColor: C.surface,
-                  borderRadius: 14,
+                  backgroundColor: colors.surface,
+                  borderRadius: 13,
                   borderWidth: 1,
-                  borderColor: C.border,
-                  padding: 14,
+                  borderColor: colors.border,
+                  padding: 13,
+                  paddingHorizontal: 14,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  gap: 12,
+                  justifyContent: 'space-between',
+                  marginBottom: 8,
                 }}
               >
-                <View style={{
-                  width: 38, height: 38,
-                  borderRadius: 11,
-                  backgroundColor: item.color + '15',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Feather name={item.icon} size={18} color={item.color} />
+                <View>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: colors.textSecondary,
+                  }}>
+                    {note.matiere}
+                  </Text>
+                  <Text style={{
+                    fontSize: 11,
+                    color: colors.textMuted,
+                    marginTop: 2,
+                  }}>
+                    {note.date}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: C.textSecondary, flexShrink: 1 }}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* ───── Dernières notes ───── */}
-          <SectionTitle>Dernières notes</SectionTitle>
-
-          {student.dernieresNotes.map((note) => (
-            <View
-              key={note.id}
-              style={{
-                backgroundColor: C.surface,
-                borderRadius: 13,
-                borderWidth: 1,
-                borderColor: C.border,
-                padding: 13,
-                paddingHorizontal: 14,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 8,
-              }}
-            >
-              <View>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#CDD0E0' }}>
-                  {note.matiere}
-                </Text>
-                <Text style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>
-                  {note.date}
-                </Text>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: bg,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color }}>
+                    {note.note}
+                  </Text>
+                </View>
               </View>
-              <GradeBubble note={note.note} />
-            </View>
-          ))}
+            );
+          })}
 
           <TouchableOpacity
             activeOpacity={0.7}
@@ -443,13 +558,18 @@ export const StudentHomeScreen: React.FC = () => {
               marginTop: 4,
               paddingVertical: 12,
               alignItems: 'center',
-              backgroundColor: C.surface,
+              backgroundColor: colors.surface,
               borderRadius: 13,
               borderWidth: 1,
-              borderColor: C.border,
+              borderColor: colors.border,
             }}
           >
-            <Text style={{ fontSize: 13, fontWeight: '600', color: C.accentDim, letterSpacing: 0.2 }}>
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: colors.primary,
+              letterSpacing: 0.2,
+            }}>
               Voir toutes mes notes →
             </Text>
           </TouchableOpacity>
